@@ -63,4 +63,4 @@ After fill the trader stays on the ticket: emit `mark` on each check. If an exit
 
 ## After every cycle
 
-Append with [tools/append_event.py](tools/append_event.py) using [ledger/schema.md](ledger/schema.md). That is how the desk stays connected to this team.
+Append with [tools/append_event.py](tools/append_event.py) using [ledger/schema.md](ledger/schema.md). That is how the desk stays connected to this team. Lovable is a public view of `site/` later, not part of the cycle.

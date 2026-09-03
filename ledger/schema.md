@@ -71,3 +71,5 @@ python3 tools/append_event.py '{"ts":"...","cycle_id":"...","kind":"quiet","bot"
 python3 tools/learn_from_settle.py --cycle_id '...'
 python3 tools/heartbeat.py
 ```
+
+Events stay in this file. Do not POST them to Lovable.

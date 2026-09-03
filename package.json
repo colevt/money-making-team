@@ -2,13 +2,13 @@
   "name": "worlds-1-money-team",
   "private": true,
   "type": "module",
-  "description": "Ledger contract and ingest for the Worlds #1 Money Team Grok desk",
+  "description": "Ledger, local desk, and Grok bot control plane for the Worlds #1 Money Team",
   "scripts": {
     "desk": "python3 tools/serve_desk.py",
     "append": "python3 tools/append_event.py",
-    "ingest": "python3 tools/ingest.py",
     "heartbeat": "python3 tools/heartbeat.py",
     "learn": "python3 tools/learn_from_settle.py",
-    "test": "python3 tools/test_ledger_contract.py"
+    "test": "python3 tools/test_ledger_contract.py",
+    "bootstrap": "bash tools/bootstrap.sh"
   }
 }

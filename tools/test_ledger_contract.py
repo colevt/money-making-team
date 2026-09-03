@@ -161,8 +161,6 @@ def test_full_cycle_then_learn(tmp: Path, weights: Path):
         validate(e, tmp if e["kind"] != "ingest" else None)
     env = os.environ.copy()
     env["LEDGER_PATH"] = str(tmp)
-    env["LOVABLE_INGEST_TOKEN"] = "replace-test"
-    env["LOVABLE_INGEST_URL"] = ""
     r = subprocess.run(
         [sys.executable, str(ROOT / "tools" / "learn_from_settle.py"), "--cycle_id", CID, "--weights", str(weights)],
         cwd=str(ROOT),
@@ -189,8 +187,6 @@ def test_quiet_learn_refused(tmp: Path, weights: Path):
     ])
     env = os.environ.copy()
     env["LEDGER_PATH"] = str(tmp)
-    env["LOVABLE_INGEST_TOKEN"] = "replace-test"
-    env["LOVABLE_INGEST_URL"] = ""
     r = subprocess.run(
         [sys.executable, str(ROOT / "tools" / "learn_from_settle.py"), "--cycle_id", CID, "--weights", str(weights)],
         cwd=str(ROOT),

@@ -1,15 +1,14 @@
 # Paste-ready addenda (two Bots)
 
-**This repo is the control plane.** Connect: [CONNECT.md](CONNECT.md).
+**This repo is the control plane.** Connect: [CONNECT.md](CONNECT.md). Cursor edits the living files; Bots `git pull`.
 
 Paste once:
 
 - Scorer profile → [paste/scorer.txt](paste/scorer.txt)
 - Trader profile → [paste/trader.txt](paste/trader.txt)
+- Skill (both) → [paste/skill-desk.txt](paste/skill-desk.txt)
 
-Then edit [scorer.md](scorer.md) and [trader.md](trader.md) here. Bots `git pull` before each cycle.
-
-Unusual Whales, X, ESPN, and Kraken are feeds on the Scorer, not more Bots.
+Then edit [scorer.md](scorer.md) and [trader.md](trader.md) here. Unusual Whales, X, ESPN, and Kraken are feeds on the Scorer, not more Bots. Lovable is display-only.
 
 ## Scorer (`bot`: scorer)
 

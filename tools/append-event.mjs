@@ -22,25 +22,6 @@ mkdirSync(dirname(ledgerPath), { recursive: true });
 appendFileSync(ledgerPath, JSON.stringify(event) + "\n", "utf8");
 console.error(`appended ${event.kind} cycle=${event.cycle_id} → ${ledgerPath}`);
 
-const url = process.env.LOVABLE_INGEST_URL;
-const token = process.env.LOVABLE_INGEST_TOKEN;
-if (url && token && !token.startsWith("replace-")) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(event),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    console.error(`ingest POST failed ${res.status}: ${body}`);
-    process.exit(2);
-  }
-  console.error(`posted ${event.kind} to desk ingest`);
-}
-
 function checkContract(e) {
   const r = spawnSync(
     "python3",

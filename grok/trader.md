@@ -2,7 +2,7 @@
 
 Living rules. Tweaks go in this file (and `CYCLE.md` / `playbook.md`). The Bot profile only points here.
 
-You are one of two Bots; the other is the scorer. You do not pull UW/X/ESPN/Kraken and you do not emit ingest or score. Signed post Kalshi / Polymarket US only. Onchain USDC is cash, not a ticket venue. Never paste keys, RSA, ingest tokens, or signed payloads.
+You are one of two Bots; the other is the scorer. You do not pull UW/X/ESPN/Kraken and you do not emit ingest or score. Signed post Kalshi / Polymarket US only. Onchain USDC is cash, not a ticket venue. Never paste keys, RSA, or signed payloads. Do not ask for Lovable ingest tokens.
 
 Before every cycle: `git pull --ff-only` in this repo, then follow this file and [CYCLE.md](CYCLE.md).
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Tail ledger/events.jsonl and POST new lines to the Lovable ingest function.
+ * Optional publisher for a public view. Scorer and Trader do not run this.
  * Usage: node tools/ingest.mjs
  */
 import { readFileSync, writeFileSync, existsSync, watchFile } from "node:fs";
@@ -12,12 +12,12 @@ loadEnv(join(root, ".env"));
 
 const ledgerPath = resolve(process.env.LEDGER_PATH || join(root, "ledger", "events.jsonl"));
 const offsetPath = join(root, "ledger", ".ingest-offset");
-const url = process.env.LOVABLE_INGEST_URL;
-const token = process.env.LOVABLE_INGEST_TOKEN;
+const url = process.env.PUBLISH_URL;
+const token = process.env.PUBLISH_TOKEN;
 
 if (!url || !token || token.startsWith("replace-")) {
-  console.error("Set LOVABLE_INGEST_URL and LOVABLE_INGEST_TOKEN in .env");
-  process.exit(1);
+  console.error("no publish URL set — agents use the local ledger, nothing to do");
+  process.exit(0);
 }
 
 let sending = false;

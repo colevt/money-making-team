@@ -33,3 +33,4 @@ learn      scorer   python3 tools/learn_from_settle.py --cycle_id <id>
 - `learn` on quiet
 - Changing the 6% gate
 - Kraken live order, Global CLOB, Onchain as a ticket venue, ask ≥ 0.80
+- POSTing to Lovable or waiting on an ingest token

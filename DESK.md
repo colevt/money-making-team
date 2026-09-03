@@ -1,6 +1,6 @@
 # Live desk
 
-Work happens in this repo. Lovable is only for publishing a public view later.
+Work happens in this repo. Improve the Grok bots in Cursor; they pull this git remote. Lovable is only for publishing a public view of `site/` later — not ingest, not tokens, not the agent loop.
 
 ## Local dashboard
 
@@ -23,4 +23,4 @@ Kraken, Unusual Whales, X, and ESPN are scoring feeds, not fill accounts. Global
 ## URLs
 
 - Live blotter API: `GET https://merger-sole-additional-checked.trycloudflare.com/api/desk`
-- Lovable (publish later): https://lovable.dev/projects/818c0ae4-01a3-494b-9415-568cacef4992
+- Public view later: https://lovable.dev/projects/818c0ae4-01a3-494b-9415-568cacef4992

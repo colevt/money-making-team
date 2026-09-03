@@ -1,6 +1,6 @@
 # Worlds #1 Money Team — two Grok bots
 
-Living jobs: [scorer.md](scorer.md), [trader.md](trader.md). One-time profile paste: [paste/scorer.txt](paste/scorer.txt), [paste/trader.txt](paste/trader.txt). Wire-up: [CONNECT.md](CONNECT.md). Two Bots; feeds are not Bots.
+Living jobs: [scorer.md](scorer.md), [trader.md](trader.md). One-time profile paste: [paste/scorer.txt](paste/scorer.txt), [paste/trader.txt](paste/trader.txt). Skill: [paste/skill-desk.txt](paste/skill-desk.txt). Wire-up: [CONNECT.md](CONNECT.md). Two Bots; feeds are not Bots.
 
 | Bot | `bot` field | Tools | Job |
 | --- | --- | --- | --- |
@@ -25,6 +25,6 @@ Heartbeat: `python3 tools/heartbeat.py` (scorer + trader).
 python3 tools/append_event.py '{"ts":"ISO","cycle_id":"…","kind":"score","bot":"scorer",...}'
 ```
 
-A score without `model_cents` is rejected. If Grok local tools stay on `never`, POST the same JSON to `LOVABLE_INGEST_URL` with the Bearer token from `.env`. Do not paste the token into a Bot description.
+A score without `model_cents` is rejected. If a local tool is blocked, write the JSON with `python3 tools/append_event.py` on this computer. Do not POST to Lovable. Do not ask for ingest tokens.
 
 Standing rules: [playbook.md](../playbook.md) · [ledger/schema.md](../ledger/schema.md) · paste: [paste/scorer.txt](paste/scorer.txt), [paste/trader.txt](paste/trader.txt)

@@ -1,0 +1,3 @@
+Save as a Grok Bot skill named money-team-desk and enable it on Scorer and Trader.
+
+This git repo is the control plane. Clone https://github.com/colevt/money-making-team.git into /workspace if missing. Before every cycle: git pull --ff-only, then follow grok/CYCLE.md plus grok/scorer.md or grok/trader.md. Append with python3 tools/append_event.py into ledger/events.jsonl. Heartbeat with python3 tools/heartbeat.py. Cursor edits those files; do not re-paste profiles. Lovable only shows site/ later — do not ask for LOVABLE_INGEST_TOKEN or POST cycle JSON anywhere. Two Bots only. Scorer never fills. Trader never scores. Gate: edge >= 6% AND ask < 0.80 AND fresh ingest, else quiet.

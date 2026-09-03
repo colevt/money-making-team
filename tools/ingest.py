@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Tail ledger/events.jsonl and POST new lines to the Lovable ingest function."""
+"""Optional publisher for a public view. Scorer and Trader do not run this.
+
+The agent loop writes ledger/events.jsonl in this repo. Lovable only hosts a
+copy of site/ later. If PUBLISH_URL is unset, this script exits 0 and does nothing.
+"""
 from __future__ import annotations
 
 import json
@@ -60,10 +64,11 @@ def flush(ledger: Path, offset_path: Path, url: str, token: str) -> None:
 
 def main() -> None:
     load_env(ROOT / ".env")
-    url = os.environ.get("LOVABLE_INGEST_URL", "")
-    token = os.environ.get("LOVABLE_INGEST_TOKEN", "")
+    url = os.environ.get("PUBLISH_URL", "")
+    token = os.environ.get("PUBLISH_TOKEN", "")
     if not url or not token or token.startswith("replace-"):
-        raise SystemExit("Set LOVABLE_INGEST_URL and LOVABLE_INGEST_TOKEN in .env")
+        print("no publish URL set — agents use the local ledger, nothing to do", file=__import__("sys").stderr)
+        return
     ledger = Path(os.environ.get("LEDGER_PATH", ROOT / "ledger" / "events.jsonl"))
     offset_path = ROOT / "ledger" / ".ingest-offset"
     print(f"watching {ledger} → {url}", file=__import__("sys").stderr)
