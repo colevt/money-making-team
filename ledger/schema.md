@@ -18,7 +18,7 @@ A fired ticket is illegal unless this cycle already has a fresh `ingest` and a `
 
 | kind | Who | Extra fields |
 | --- | --- | --- |
-| `ingest` | scorer | `feeds`: **all six** keys below. Each `{ ok, lag_s, note }`. `x_news.ok` cannot be true with note `no pull`. |
+| `ingest` | scorer | `feeds`: **all seven** keys below. Each `{ ok, lag_s, note }`. `x_news.ok` cannot be true with note `no pull`. `osiris.ok` cannot be true if incomplete. |
 | `score` | scorer | `edge_pct`, `ask`, `bid`, `model_cents`, `book_cents`, `weights`, `gate_pass`, `venue`, `market_id`, `market`, `book_kind` `sports`\|`crypto15m`, `feeds_used` (`uw`\|`x`\|`espn`\|`crypto`\|`book`), `reason` |
 | `quiet` | scorer | `reason` (why the 6% / ask / venue / stale / kill switch failed) |
 | `ticket` | trader | `venue` `kalshi` \| `polymarket_us`, `side`, `size_usd`, `entry_cents`, `market_id`, `market`. Refused if this cycle is quiet or `gate_pass` is not true. |
@@ -33,7 +33,7 @@ A fired ticket is illegal unless this cycle already has a fresh `ingest` and a `
 
 ## Ingest feeds (required every cycle)
 
-`unusual_whales`, `x_news`, `espn`, `crypto`, `kalshi`, `polymarket_us`.
+`unusual_whales`, `x_news`, `espn`, `crypto`, `kalshi`, `polymarket_us`, `osiris`.
 
 Stale → `quiet`, never a ticket:
 
@@ -44,12 +44,13 @@ Stale → `quiet`, never a ticket:
 | espn (sports only) | 45 |
 | crypto | 180 |
 | kalshi / polymarket_us | 20 |
+| osiris | 90 |
 
-ESPN may be `ok` with note `not used crypto15m` on crypto books. Crypto may sit idle on sports. X must actually pull; `no pull yet` with `ok: true` is rejected.
+ESPN may be `ok` with note `not used crypto15m` on crypto books. Crypto may sit idle on sports. X must actually pull; `no pull yet` with `ok: true` is rejected. OSIRIS must actually pull (`python3 tools/osiris.py`); incomplete with `ok: true` is rejected.
 
 ## Gate rule encoded
 
-`gate_pass` is true **iff** `edge_pct >= 6` **and** `ask < 0.80` **and** venue is `kalshi` or `polymarket_us` **and** this cycle’s ingest is fresh.
+`gate_pass` is true **iff** `edge_pct >= 6` **and** `ask < 0.80` **and** venue is `kalshi` or `polymarket_us` **and** this cycle’s ingest is fresh (including OSIRIS).
 
 `edge_pct` must equal `model_cents - book_cents` (±0.25). `ask` must match `book_cents/100`. `model_cents` is required — a null model is not a score.
 
@@ -60,7 +61,7 @@ Onchain USDC is cash on the desk, not a ticket `venue`.
 Do not reuse MLB ESPN weights on KXBTC/KXXRP. Stored in [weights.json](weights.json):
 
 - `sports` — UW flow, X lag, ESPN game state, live book. Crypto weight frozen.
-- `crypto15m` — UW OHLC, Kraken, Kalshi 15m book. ESPN weight frozen.
+- `crypto15m` — UW OHLC, Kraken, OSIRIS crypto/markets, Kalshi 15m book. ESPN weight frozen.
 
 Only `settle` retunes, via `tools/learn_from_settle.py`: ±0.02 on `feeds_used`, renormalize, gate stays 6% until 60 settled tickets **on that book**.
 

@@ -7,8 +7,8 @@ Lovable is a public view of `site/` later. It is not in the agent loop. Do not a
 - After every cycle (trade or quiet): `python3 tools/append_event.py '…'`
 - Score requires `model_cents`. Null model is not a score.
 - Gate: edge >= 6% AND ask < 0.80 AND fresh ingest, else `quiet`.
+- Scoring only: Unusual Whales, X, ESPN, Kraken, OSIRIS (never `-s trade`, never withdraw).
 - Tickets: Kalshi or Polymarket US only. Onchain is cash, not a venue.
-- Scoring only: Unusual Whales, X, ESPN, Kraken (never `-s trade`, never withdraw).
 - After settle only: `python3 tools/learn_from_settle.py --cycle_id …`. Quiet does not learn.
 - Heartbeat: `python3 tools/heartbeat.py`
 - Never paste keys into chat.

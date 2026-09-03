@@ -30,14 +30,14 @@ Public GitHub. No Origin login. No `.env` required.
 
 ## Roles
 
-- **Scorer** (`bot=scorer`): pull Unusual Whales, X, ESPN, Kraken, live books. Emit `ingest` then `score` with `model_cents`. Gate fail → `quiet`. Never fill. After settle: `python3 tools/learn_from_settle.py --cycle_id …`
+- **Scorer** (`bot=scorer`): pull Unusual Whales, X, ESPN, Kraken, OSIRIS (`python3 tools/osiris.py`), live books. Emit `ingest` then `score` with `model_cents`. Use every feed. Gate fail → `quiet`. Never fill. After settle: `python3 tools/learn_from_settle.py --cycle_id …`
 - **Trader** (`bot=trader`): Kalshi / Polymarket US signed post only if this `cycle_id` already has `score.gate_pass=true`. `ticket → post → fill → mark → flatten or settle`. Does not score. Does not learn.
 
 Do not create extra Bots for X, ESPN, or Kraken.
 
 ## Gate
 
-Ticket only when `edge_pct >= 6` AND `ask < 0.80` AND venue is `kalshi` or `polymarket_us` AND ingest is fresh. Else `quiet`. Null `model_cents` is not a score.
+Ticket only when `edge_pct >= 6` AND `ask < 0.80` AND venue is `kalshi` or `polymarket_us` AND ingest is fresh **including OSIRIS**. Else `quiet`. Null `model_cents` is not a score.
 
 ## Improve the bots in Cursor
 
@@ -50,3 +50,4 @@ Edit `grok/scorer.md`, `grok/trader.md`, `grok/CYCLE.md`, or `playbook.md`, then
 - Ask ≥ 0.80, sports before first pitch, `learn` on quiet
 - POSTing cycle JSON to Lovable
 - `git pull` on every 5-minute scan
+- POSTing `https://osirisai.live/api/github-webhook` (not a scoring GET)

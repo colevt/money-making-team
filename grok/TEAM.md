@@ -4,16 +4,16 @@ Living jobs: [scorer.md](scorer.md), [trader.md](trader.md). One-time profile pa
 
 | Bot | `bot` field | Tools | Job |
 | --- | --- | --- | --- |
-| Scorer | `scorer` | Unusual Whales `4021654`, X `4022021`, Kraken `4031115`, ESPN game state, live books | Pull every feed, write `ingest` + `score` (`model_cents` required). Gate fail → `quiet`. After settle run `learn_from_settle.py`. Does not fill. |
+| Scorer | `scorer` | Unusual Whales `4021654`, X `4022021`, Kraken `4031115`, ESPN, OSIRIS `python3 tools/osiris.py`, live books | Pull **every** feed, write `ingest` + `score` (`model_cents` required). Gate fail → `quiet`. After settle run `learn_from_settle.py`. Does not fill. |
 | Trader | `trader` | Kalshi + Polymarket US signed post | Only if this cycle already `gate_pass`. `ticket → post → fill → mark → flatten or settle`. Does not score. Does not learn. |
 
-Scoring feeds (Scorer pulls these; do not create extra Bots): Unusual Whales, X, ESPN, Kraken public/paper. Never live Kraken, never `-s trade`.
+Scoring feeds (Scorer pulls these; do not create extra Bots): Unusual Whales, X, ESPN, Kraken public/paper, OSIRIS. Never live Kraken, never `-s trade`.
 
 ## Cycle
 
 See [CYCLE.md](CYCLE.md). Short form:
 
-Scorer ingest (six feeds) → Scorer score with **model_cents** → **6% and ask < 0.80** or Quiet → Trader ticket → post → fill → flatten-watch → settle → Scorer `python3 tools/learn_from_settle.py`.
+Scorer ingest (seven feeds including OSIRIS) → Scorer score with **model_cents** → **6% and ask < 0.80** or Quiet → Trader ticket → post → fill → flatten-watch → settle → Scorer `python3 tools/learn_from_settle.py`.
 
 Quiet still emits `ingest` + `score` + `quiet`. No `learn` on quiet. Two weight books in [ledger/weights.json](../ledger/weights.json). ESPN does not train on crypto 15m.
 

@@ -15,7 +15,7 @@ VENUES = {"kalshi", "polymarket_us"}
 BOOK_KINDS = {"sports", "crypto15m"}
 WEIGHT_KEYS = ("uw", "x", "espn", "crypto", "book")
 INGEST_FEEDS = (
-    "unusual_whales", "x_news", "espn", "crypto", "kalshi", "polymarket_us",
+    "unusual_whales", "x_news", "espn", "crypto", "kalshi", "polymarket_us", "osiris",
 )
 FEED_TO_WEIGHT = {
     "unusual_whales": "uw",
@@ -24,6 +24,7 @@ FEED_TO_WEIGHT = {
     "crypto": "crypto",
     "kalshi": "book",
     "polymarket_us": "book",
+    "osiris": "x",
 }
 RESULTS = {"WON", "LOST"}
 HEALTH = {"ok", "warn", "bad"}
@@ -42,6 +43,7 @@ STALE_S = {
     "crypto": 180,
     "kalshi": 20,
     "polymarket_us": 20,
+    "osiris": 90,
 }
 
 DEFAULT_WEIGHTS = {
@@ -124,6 +126,9 @@ def ingest_kill_reason(ingest: dict, book_kind: str | None) -> str | None:
             lag = 10**9
         if name == "x_news" and ("no pull" in note or "no pull yet" in note):
             return "x_news did not pull"
+        if name == "osiris" and ("no pull" in note or "incomplete" in note):
+            if ok is not True:
+                return "osiris did not pull"
         if name == "espn" and book_kind == "crypto15m":
             continue
         if name == "crypto" and book_kind == "sports":
@@ -259,6 +264,8 @@ def _validate_ingest(event: dict) -> None:
         note = str(row.get("note")).lower()
         if name == "x_news" and row.get("ok") is True and "no pull" in note:
             fail("x_news ok=true cannot be 'no pull' — pull or set ok=false")
+        if name == "osiris" and row.get("ok") is True and ("no pull" in note or "incomplete" in note):
+            fail("osiris ok=true cannot be incomplete — python3 tools/osiris.py")
 
 
 def _validate_score(event: dict, events: list[dict]) -> None:

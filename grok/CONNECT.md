@@ -2,7 +2,7 @@
 
 Cursor is how you make the bots better: edit [scorer.md](scorer.md), [trader.md](trader.md), [CYCLE.md](CYCLE.md), [playbook.md](../playbook.md), push, and the Bots pick it up on the **once-a-day** `python3 tools/daily_update.py`. Bot **descriptions** are short pointers ([paste/scorer.txt](paste/scorer.txt), [paste/trader.txt](paste/trader.txt)). Paste those once.
 
-Two Bots only. Unusual Whales, X, ESPN, and Kraken are **feeds the Scorer pulls**, not extra Bots.
+Two Bots only. Unusual Whales, X, ESPN, Kraken, and OSIRIS are **feeds the Scorer pulls**, not extra Bots. Use all of them every scan.
 
 The cycle lives in this git repo. Events go to `ledger/events.jsonl` via `python3 tools/append_event.py`. **Lovable is display-only** (`site/` later). Do not ask for ingest tokens. Never put venue keys in a Bot profile, chat, or share link.
 
@@ -74,9 +74,21 @@ python3 tools/test_ledger_contract.py
 tail -n 20 ledger/events.jsonl
 ```
 
-Quiet: `ingest` (six feeds, X actually pulled) + `score` with `model_cents` + `quiet`. Fired: Trader `ticket` → `post` → `fill` → `mark`, later `settle`, then Scorer `python3 tools/learn_from_settle.py --cycle_id …`.
+Quiet: `ingest` (seven feeds, X actually pulled, OSIRIS `python3 tools/osiris.py`) + `score` with `model_cents` + `quiet`. Fired: Trader `ticket` → `post` → `fill` → `mark`, later `settle`, then Scorer `python3 tools/learn_from_settle.py --cycle_id …`.
 
 Local app: `python3 tools/serve_desk.py` → http://127.0.0.1:8765. That is the desk. Lovable is a later public copy of `site/`, not a token the bots wait on.
+
+## 7. OSIRIS GitHub webhook (not a scan)
+
+`POST https://osirisai.live/api/github-webhook` receives **GitHub repository events** and forwards them. It needs `x-hub-signature-256` plus Osiris’s own `GITHUB_WEBHOOK_SECRET` / forward URL. An empty `curl -d '{}'` is not intel and must not run on a 5-minute scan.
+
+Scoring OSIRIS is always:
+
+```bash
+python3 tools/osiris.py
+```
+
+Do not add this webhook on `colevt/money-making-team` unless Osiris operators give you their webhook secret. This desk does not have it.
 
 ## Illegal on both Bots
 
@@ -87,3 +99,4 @@ Local app: `python3 tools/serve_desk.py` → http://127.0.0.1:8765. That is the 
 - `learn` on quiet
 - `git pull` on every scan (use the daily update)
 - A third Bot for X, ESPN, or Kraken
+- POSTing empty JSON to `https://osirisai.live/api/github-webhook`

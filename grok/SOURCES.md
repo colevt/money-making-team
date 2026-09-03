@@ -8,7 +8,7 @@ Refresh public + desk snapshot: `python3 tools/pull_sources.py`
 
 ## Scoring feeds (Scorer, every cycle)
 
-These six keys are **required** on every `ingest` event. Each `{ ok, lag_s, note }`.
+These **seven** keys are **required** on every `ingest` event. Each `{ ok, lag_s, note }`. Use **all** of them in the model — do not score off one feed.
 
 | # | Ingest key | Source | How to pull | What to take | Max lag | Weight key |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -18,8 +18,9 @@ These six keys are **required** on every `ingest` event. Each `{ ok, lag_s, note
 | 4 | `crypto` | Kraken plugin `4031115` + UW spots | Kraken **public ticker / OHLC / paper**. Never `-s trade`, never withdraw. | BTC, ETH, SOL, XRP spot vs UW. Overnight and Kalshi 15m: OHLC vs `KXBTC15M` / `KXETH15M` / `KXXRP15M`. | 180s | `crypto` |
 | 5 | `kalshi` | Kalshi live book | Scorer reads the book; Trader is the only one who posts | Bid/ask/mark/depth on fillable tickers. Sports + crypto 15m. | 20s | `book` |
 | 6 | `polymarket_us` | Polymarket US live book | Scorer reads the book; Trader is the only one who posts | Bid/ask/mark/depth on fillable US tickers. | 20s | `book` |
+| 7 | `osiris` | OSIRIS API https://osirisai.live/docs#quickstart | `python3 tools/osiris.py` — no key | **All trade routes:** `/api/stats` `/api/markets` `/api/crypto` `/api/news` `/api/country-risk` `/api/conflicts` `/api/gdelt` `/api/space-weather` `/api/cyber-threats` `/api/weather`. Cross-check spots vs Kraken/UW. News/risk/conflicts sit on the `x` weight. `max_risk >= 7` tied to the market → quiet unless the book already moved. Skip flights/CCTV/sats GeoJSON (not a book). | 90s | `x` |
 
-Do not create extra Bots for #1–4. One Scorer pulls all of them.
+Do not create extra Bots for #1–4 or #7. One Scorer pulls all of them. A score that ignores OSIRIS, X, or UW is incomplete.
 
 ## Desk / cash (read every cycle, not ticket venues)
 
@@ -33,8 +34,8 @@ Do not create extra Bots for #1–4. One Scorer pulls all of them.
 
 | Window | Book kind | Feeds that drive the model | Freeze |
 | --- | --- | --- | --- |
-| US hours | `sports` | UW flow (IBIT/MSTR), X lag, ESPN live game, Kalshi or Poly US book | `crypto` weight |
-| Overnight + Kalshi 15m crypto (also daytime 15m) | `crypto15m` | UW OHLC + Kraken vs `KXBTC15M` / `KXETH15M` / `KXXRP15M` | `espn` weight |
+| US hours | `sports` | UW flow (IBIT/MSTR), X lag, OSIRIS news/risk, ESPN live game, Kalshi or Poly US book | `crypto` weight |
+| Overnight + Kalshi 15m crypto (also daytime 15m) | `crypto15m` | UW OHLC + Kraken + OSIRIS `/api/crypto`+`/api/markets` vs `KXBTC15M` / `KXETH15M` / `KXXRP15M` | `espn` weight |
 
 ## Not sources
 
@@ -44,6 +45,8 @@ Do not create extra Bots for #1–4. One Scorer pulls all of them.
 | Lovable | Public view of `site/` later. Not ingest. |
 | Live Kraken | Scoring/paper only. Never `-s trade`. |
 | Onchain as a ticket | Cash wallet, not `venue`. Tickets are Kalshi or Polymarket US only. |
+| `POST /api/github-webhook` | Osiris **write** path. Forwards signed GitHub repo events (`x-hub-signature-256`) to Osiris’s own bot URL. Empty `curl -d '{}'` is not market data (401/403/503). Bots must not POST this on a scan. Scoring is `python3 tools/osiris.py` (GETs). |
+| OSIRIS RECON / scanner / `/api/ai/*` | Active scan or 5/min AI POSTs. Not a book. |
 
 ## Pull vs git
 
@@ -53,7 +56,7 @@ Do not create extra Bots for #1–4. One Scorer pulls all of them.
 | All sources above | Every 5-minute scan | Scorer: plugins + public pulls. Snapshot: `python3 tools/pull_sources.py` |
 | Heartbeat | Every 5 minutes | `python3 tools/heartbeat.py --bot scorer` |
 
-## Ingest example (all six keys)
+## Ingest example (all seven keys)
 
 ```json
 {
@@ -67,7 +70,8 @@ Do not create extra Bots for #1–4. One Scorer pulls all of them.
     "espn": {"ok": true, "lag_s": 4, "note": "not used crypto15m"},
     "crypto": {"ok": true, "lag_s": 2, "note": "XRP Kraken 1.349 vs UW 1.349"},
     "kalshi": {"ok": true, "lag_s": 1, "note": "KXXRP15M YES 72¢"},
-    "polymarket_us": {"ok": true, "lag_s": 1, "note": "no twin"}
+    "polymarket_us": {"ok": true, "lag_s": 1, "note": "no twin"},
+    "osiris": {"ok": true, "lag_s": 8, "note": "BTC 77300 · VIX 15.2 · news risk 3"}
   }
 }
 ```

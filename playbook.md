@@ -1,6 +1,6 @@
 # Worlds #1 Money Team playbook
 
-Source of truth for the two Grok bots (Scorer + Trader). Unusual Whales, X, ESPN, and Kraken are scoring **feeds**, not extra Bots. The desk exists to show **why** a cycle was Quiet vs traded, then retune from settled P/L. Caps are not optional. [grok/CYCLE.md](grok/CYCLE.md) is the step list; [ledger/schema.md](ledger/schema.md) is what `append_event.py` will reject.
+Source of truth for the two Grok bots (Scorer + Trader). Unusual Whales, X, ESPN, Kraken, and OSIRIS are scoring **feeds**, not extra Bots. Use **all** of them every scan. The desk exists to show **why** a cycle was Quiet vs traded, then retune from settled P/L. Caps are not optional. [grok/CYCLE.md](grok/CYCLE.md) is the step list; [grok/SOURCES.md](grok/SOURCES.md) is the full pull list; [ledger/schema.md](ledger/schema.md) is what `append_event.py` will reject.
 
 ## Venues
 
@@ -12,9 +12,10 @@ Execution wallets on the desk:
 
 Scoring only (never a fill venue):
 
-- Unusual Whales, X, ESPN, and Kraken.
+- Unusual Whales, X, ESPN, Kraken, and OSIRIS (`python3 tools/osiris.py` GETs).
 - Never place a live Kraken order. Never enable `-s trade`. Never withdraw.
 - Global CLOB is not a venue. 403 geo is expected. No order path through it.
+- Do not POST `https://osirisai.live/api/github-webhook`. That forwards signed GitHub events; empty `{}` is not a book.
 
 ## Gate (must all pass)
 
@@ -24,8 +25,8 @@ A ticket is allowed only when:
 2. Live **ask < 0.80** (do not buy because UW looks bullish)
 3. Book is Kalshi or Polymarket US (fillable ticker, not a CLOB ghost)
 4. Sports: game **has started**; X/ESPN are lag detectors, not standalone buys. Use `book_kind=sports`.
-5. Crypto 15m: UW+Kraken OHLC vs the Kalshi 15m book. Use `book_kind=crypto15m`. Do not apply ESPN sports weights.
-6. Ingest is fresh (kill switches below). X actually pulled.
+5. Crypto 15m: UW+Kraken+OSIRIS `/api/crypto` vs the Kalshi 15m book. Use `book_kind=crypto15m`. Do not apply ESPN sports weights.
+6. Ingest is fresh (kill switches below). X actually pulled. OSIRIS actually pulled.
 
 Otherwise emit `quiet` and stand down. Quiet is a first-class outcome. The append tool refuses `gate_pass: true` when ingest is missing or stale.
 
@@ -54,7 +55,8 @@ After fill the trader stays on the ticket: emit `mark` on each check. If an exit
 
 ## Kill switches → Quiet
 
-- Any scoring feed stale (UW>10m, X>5m or no pull, ESPN sports>45s, Kraken>3m, books>20s)
+- Any scoring feed stale (UW>10m, X>5m or no pull, ESPN sports>45s, Kraken>3m, books>20s, OSIRIS>90s)
+- OSIRIS incomplete (`python3 tools/osiris.py` failed core routes)
 - Ingest/desk heartbeat down (no heartbeat in 5 minutes)
 - Market is Global-CLOB-only
 - Ask ≥ 0.80

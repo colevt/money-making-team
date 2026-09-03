@@ -22,6 +22,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
 OUT = ROOT / "ledger" / "sources_snapshot.json"
 LIVE_DESK = os.environ.get(
     "LIVE_DESK_URL",
@@ -46,6 +47,7 @@ REQUIRED = (
     "crypto",
     "kalshi",
     "polymarket_us",
+    "osiris",
     "live_desk",
     "onchain",
 )
@@ -203,6 +205,7 @@ def checklist(snap: dict) -> list[dict]:
         {"key": "crypto", "pulled_here": bool((snap.get("crypto") or {}).get("ok")), "need": "Kraken public + UW spots", "desk": _desk_line(desk, "Crypto", "crypto")},
         {"key": "kalshi", "pulled_here": False, "need": "live Kalshi book (Scorer read / Trader sign)", "desk": _desk_line(desk, "Kalshi", None)},
         {"key": "polymarket_us", "pulled_here": False, "need": "live Polymarket US book", "desk": _desk_line(desk, "Polymarket", None)},
+        {"key": "osiris", "pulled_here": bool((snap.get("osiris") or {}).get("ok")), "need": "GET https://osirisai.live/api/{stats,markets,crypto,news,...}"},
         {"key": "live_desk", "pulled_here": bool(desk.get("ok")), "need": "GET /api/desk"},
         {"key": "onchain", "pulled_here": bool((snap.get("onchain") or {}).get("ok")), "need": "Polygon USDC"},
     ]
@@ -236,6 +239,12 @@ def main() -> None:
         snap["onchain"] = pull_onchain()
     except Exception as err:
         snap["onchain"] = fail_row(err)
+    try:
+        from osiris import pull as pull_osiris  # noqa: E402
+        osi = pull_osiris()
+        snap["osiris"] = osi
+    except Exception as err:
+        snap["osiris"] = fail_row(err)
     snap["checklist"] = checklist(snap)
     OUT.write_text(json.dumps(snap, indent=2) + "\n")
     print(f"wrote {OUT}", file=sys.stderr)

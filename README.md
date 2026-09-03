@@ -12,7 +12,7 @@ Open http://127.0.0.1:8765. That page polls live `/api/desk`, shows Kalshi / Pol
 
 ## Connect the two Grok bots
 
-**Scorer** pulls UW, X, ESPN, Kraken, and the books. **Trader** posts Kalshi / Polymarket US only after a passing score. Do not add more Bots.
+**Scorer** pulls UW, X, ESPN, Kraken, OSIRIS, and the books — use all of them. **Trader** posts Kalshi / Polymarket US only after a passing score. Do not add more Bots.
 
 Clone (public GitHub, no token):
 

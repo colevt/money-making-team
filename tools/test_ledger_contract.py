@@ -27,6 +27,7 @@ def base_ingest(**lags):
         "crypto": {"ok": True, "lag_s": 2, "note": "XRP Kraken 1.349"},
         "kalshi": {"ok": True, "lag_s": 1, "note": "KXXRP15M YES 72¢"},
         "polymarket_us": {"ok": True, "lag_s": 1, "note": "no twin"},
+        "osiris": {"ok": True, "lag_s": 8, "note": "BTC 77300 · VIX 15.2 · news risk 3"},
     }
     for k, v in lags.items():
         feeds[k]["lag_s"] = v
@@ -87,6 +88,15 @@ def test_x_news_no_pull_cannot_be_ok():
     expect_fail(ing, None, "x_news")
 
 
+def test_osiris_required_and_must_pull():
+    ing = base_ingest()
+    del ing["feeds"]["osiris"]
+    expect_fail(ing, None, "osiris")
+    ing = base_ingest()
+    ing["feeds"]["osiris"]["note"] = "osiris incomplete (news)"
+    expect_fail(ing, None, "osiris")
+
+
 def test_gate_pass_needs_ingest(tmp: Path):
     write_ledger(tmp, [])
     expect_fail(base_score(), tmp, "requires ingest")
@@ -100,6 +110,15 @@ def test_stale_uw_blocks_gate(tmp: Path):
 def test_fresh_ingest_allows_gate(tmp: Path):
     write_ledger(tmp, [base_ingest()])
     validate(base_score(), tmp)
+
+
+def test_osiris_stale_or_incomplete_blocks_gate(tmp: Path):
+    write_ledger(tmp, [base_ingest(osiris=200)])
+    expect_fail(base_score(), tmp, "osiris")
+    ing = base_ingest()
+    ing["feeds"]["osiris"] = {"ok": False, "lag_s": 8, "note": "osiris incomplete (news)"}
+    write_ledger(tmp, [ing])
+    expect_fail(base_score(), tmp, "osiris")
 
 
 def test_quiet_needs_reason():
@@ -212,6 +231,7 @@ def main() -> None:
     test_score_requires_model()
     test_score_edge_must_match_model_minus_book()
     test_x_news_no_pull_cannot_be_ok()
+    test_osiris_required_and_must_pull()
     test_quiet_needs_reason()
     test_learn_formula_freezes_cross_book()
     with tempfile.TemporaryDirectory() as d:
@@ -219,6 +239,7 @@ def main() -> None:
         test_gate_pass_needs_ingest(p / "a.jsonl")
         test_stale_uw_blocks_gate(p / "b.jsonl")
         test_fresh_ingest_allows_gate(p / "c.jsonl")
+        test_osiris_stale_or_incomplete_blocks_gate(p / "c2.jsonl")
         test_ticket_blocked_without_passing_score(p / "d.jsonl")
         test_full_cycle_then_learn(p / "e.jsonl", p / "w.json")
         test_quiet_learn_refused(p / "f.jsonl", p / "w2.json")

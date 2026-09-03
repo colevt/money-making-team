@@ -8,7 +8,7 @@ Paste once:
 - Trader profile → [paste/trader.txt](paste/trader.txt)
 - Skill (both) → [paste/skill-desk.txt](paste/skill-desk.txt)
 
-Then edit [scorer.md](scorer.md) and [trader.md](trader.md) here. Unusual Whales, X, ESPN, and Kraken are feeds on the Scorer, not more Bots. Lovable is display-only.
+Unusual Whales, X, ESPN, and Kraken are feeds on the Scorer, not more Bots. OSIRIS is `python3 tools/osiris.py`. Lovable is display-only.
 
 ## Scorer (`bot`: scorer)
 
