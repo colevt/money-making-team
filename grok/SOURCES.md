@@ -18,7 +18,7 @@ These **eight** keys are **required** on every `ingest` event. Each `{ ok, lag_s
 | 4 | `crypto` | Kraken plugin `4031115` + UW spots | Kraken **public ticker / OHLC / paper**. Never `-s trade`, never withdraw. | BTC, ETH, SOL, XRP spot vs UW. Overnight and Kalshi 15m: OHLC vs `KXBTC15M` / `KXETH15M` / `KXXRP15M`. Fair for 1inch. | 180s | `crypto` |
 | 5 | `kalshi` | Kalshi live book | Scorer reads the book; Trader posts via `tools/execute.py` | Bid/ask/mark/depth on **all** fillable tickers. | 20s | `book` |
 | 6 | `polymarket_us` | Polymarket US live book | Scorer reads the book; Trader posts via `tools/execute.py` | Bid/ask/mark/depth on **all** fillable US tickers. | 20s | `book` |
-| 7 | `osiris` | OSIRIS API https://osirisai.live/docs#quickstart | `python3 tools/osiris.py` — no key | Trade GETs (stats, markets, crypto, news, risk, conflicts, gdelt, space-weather, cyber, weather). Skip flights/CCTV GeoJSON. | 90s | `x` |
+| 7 | `osiris` | OSIRIS API https://osirisai.live/docs | `python3 tools/osiris.py` — no key. Then read `ledger/osiris_snapshot.json`. | **Every keyless GET feed** (27): health, stats, flights (military + GPS jamming counts), satellites, space-weather, earthquakes, fires, weather, air-quality, radar, conflicts, frontlines, gdelt, country-risk, news, live-news, markets, crypto, scm-suppliers, cctv counts, infrastructure, maritime, geo, cyber-threats, cyber-attacks, malware, sdk ingest status. Geometry is compacted. Use all of it in the model. `max_risk>=7`, quake mag≥6, jamming, hot infra, cyber CRITICAL tied to a market → skip unless the book moved. | 90s | `x` |
 | 8 | `onchain` | 1inch Swap API v6.1 Polygon | `python3 tools/oneinch.py` (needs `ONEINCH_API_KEY`) | USDC → WETH/WBTC/SOL quotes vs Kraken/UW. Ticket venue. Wallet `0xcE01ddD2141e4efDB929265A538981043b7449BF`, native USDC `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`. POL is gas. | 20s | `book` |
 
 Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A score that ignores OSIRIS, X, UW, or 1inch (on crypto15m) is incomplete.
@@ -47,7 +47,7 @@ Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A 
 | Live Kraken | Scoring/paper only. Never `-s trade`. |
 | Onchain as cash-only | Stale rule. Onchain is a 1inch ticket venue now. POL is still gas, not spendable. |
 | `POST /api/github-webhook` | Osiris **write** path. Forwards signed GitHub repo events (`x-hub-signature-256`) to Osiris’s own bot URL. Empty `curl -d '{}'` is not market data (401/403/503). Bots must not POST this on a scan. Scoring is `python3 tools/osiris.py` (GETs). |
-| OSIRIS RECON / scanner / `/api/ai/*` | Active scan or 5/min AI POSTs. Not a book. |
+| OSIRIS RECON / scanner / `/api/osint/sweep` / `/api/ai/*` | Active scan or 5/min AI POSTs. Lookups (`/api/osint/*`) need a subject — not a 5-minute feed. |
 
 ## Pull vs git
 

@@ -9,7 +9,7 @@ heartbeat (every 5 min)
 
 ingest     scorer   eight feeds: unusual_whales, x_news, espn, crypto,
                     kalshi, polymarket_us, osiris, onchain
-                    osiris: python3 tools/osiris.py
+                    osiris: python3 tools/osiris.py   # all 27 GET feeds → ledger/osiris_snapshot.json
                     onchain: python3 tools/oneinch.py
 score      scorer   ONE score per fillable market×venue (kalshi, polymarket_us, onchain)
            ├─ none pass  → cycle quiet (no market_id)  STOP. no learn.

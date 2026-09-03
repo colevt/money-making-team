@@ -7,11 +7,11 @@ SCORING (required ingest keys, each {ok, lag_s, note}):
 4. crypto — Kraken plugin 4031115 public/paper only (never -s trade) + UW spots. BTC ETH SOL XRP. Also the fair for 1inch. Max lag 180s.
 5. kalshi — live book on ALL fillable tickers. Max lag 20s.
 6. polymarket_us — live book on ALL fillable US tickers. Max lag 20s.
-7. osiris — python3 tools/osiris.py. Trade GETs only. Max lag 90s.
+7. osiris — python3 tools/osiris.py (no key). Pulls ALL 27 keyless GET feeds from https://osirisai.live (flights/sats/cctv compacted to counts). Read ledger/osiris_snapshot.json. Use quakes, jamming, fires, infra, cyber, news, markets. Max lag 90s.
 8. onchain — python3 tools/oneinch.py (ONEINCH_API_KEY). USDC→WETH/WBTC/SOL vs Kraken. Ticket venue. Wallet 0xcE01…49BF. POL is gas. Max lag 20s.
 
 Trader: python3 tools/execute.py --cycle_id … then --live --append. Fills every passing score (Kalshi + Poly + 1inch), not just one.
 
-NOT SOURCES: Global CLOB, Lovable, live Kraken, OSIRIS RECON/scanner, POST /api/github-webhook.
+NOT SOURCES: Global CLOB, Lovable, live Kraken, OSIRIS RECON/scanner/osint-sweep, POST /api/github-webhook.
 
 Hours: US sports → kalshi/poly, book_kind=sports. Crypto 15m + 1inch → book_kind=crypto15m.

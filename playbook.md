@@ -8,7 +8,7 @@ Source of truth for the two Grok bots (Scorer + Trader). Unusual Whales, X, ESPN
 - **Polymarket US** — signed fills.
 - **Onchain** — Polygon 1inch classic swap v6.1 (`python3 tools/oneinch.py`, live via `tools/execute.py --live`). Native USDC from `0xcE01…49BF`. POL is gas. Crypto15m only.
 
-Scoring only (never a fill venue): Unusual Whales, X, ESPN, Kraken, OSIRIS. Never `-s trade`. Never Global CLOB. Never POST github-webhook.
+Scoring only (never a fill venue): Unusual Whales, X, ESPN, Kraken, OSIRIS (`python3 tools/osiris.py` — all GET feeds). Never `-s trade`. Never Global CLOB. Never POST github-webhook. Never RECON/scanner.
 
 ## Gate (per market × venue)
 
