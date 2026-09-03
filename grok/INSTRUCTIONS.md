@@ -1,6 +1,6 @@
 # Paste-ready addenda (two Bots)
 
-**This repo is the control plane.** Connect: [CONNECT.md](CONNECT.md). Cursor edits the living files; Bots `git pull`.
+**This repo is the control plane.** Connect: [CONNECT.md](CONNECT.md). Cursor edits the living files; Bots update once a day (`python3 tools/daily_update.py`).
 
 Paste once:
 

@@ -3,9 +3,9 @@
 One `cycle_id` per scan. Tools reject a ticket if ingest is missing/stale or `model_cents` is absent.
 
 ```text
-git pull --ff-only                 # this repo is the rules; do this first
+daily_update  once/day  python3 tools/daily_update.py   # skip if already pulled today
 heartbeat (every 5 min, even if idle)
-    python3 tools/heartbeat.py     # scorer + trader only
+    python3 tools/heartbeat.py     # scorer + trader only. no git pull.
 
 ingest     scorer   all six feeds: unusual_whales, x_news, espn, crypto, kalshi, polymarket_us
 score      scorer   model_cents, book_cents, edge_pct = model−book, book_kind, feeds_used
@@ -34,3 +34,4 @@ learn      scorer   python3 tools/learn_from_settle.py --cycle_id <id>
 - Changing the 6% gate
 - Kraken live order, Global CLOB, Onchain as a ticket venue, ask ≥ 0.80
 - POSTing to Lovable or waiting on an ingest token
+- `git pull` on every cycle (use `python3 tools/daily_update.py`, once a day)

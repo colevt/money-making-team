@@ -1,6 +1,6 @@
 # Connect the two Grok bots (this repo is the control plane)
 
-Cursor is how you make the bots better: edit [scorer.md](scorer.md), [trader.md](trader.md), [CYCLE.md](CYCLE.md), [playbook.md](../playbook.md), push, and the Bots `git pull`. Bot **descriptions** are short pointers ([paste/scorer.txt](paste/scorer.txt), [paste/trader.txt](paste/trader.txt)). Paste those once.
+Cursor is how you make the bots better: edit [scorer.md](scorer.md), [trader.md](trader.md), [CYCLE.md](CYCLE.md), [playbook.md](../playbook.md), push, and the Bots pick it up on the **once-a-day** `python3 tools/daily_update.py`. Bot **descriptions** are short pointers ([paste/scorer.txt](paste/scorer.txt), [paste/trader.txt](paste/trader.txt)). Paste those once.
 
 Two Bots only. Unusual Whales, X, ESPN, and Kraken are **feeds the Scorer pulls**, not extra Bots.
 
@@ -21,7 +21,7 @@ cd money-making-team
 bash tools/bootstrap.sh
 ```
 
-If you already cloned the nested copy (`money-making-team/money-making-team`), `git pull --ff-only` from the clone root; tools now sit at the repo root. No `.env`. No Origin login.
+If you already cloned the nested copy (`money-making-team/money-making-team`), `python3 tools/daily_update.py --force` from the clone root; tools now sit at the repo root. No `.env`. No Origin login.
 
 ## 2. Scorer plugins (account-wide)
 
@@ -48,26 +48,28 @@ Save [paste/skill-desk.txt](paste/skill-desk.txt) as the `money-team-desk` skill
 
 First messages:
 
-- Scorer: `git pull --ff-only, then read grok/scorer.md and grok/CYCLE.md. Run bash tools/bootstrap.sh if tools/ is missing. Run one ingest+score. Quiet if the gate fails. Do not fill. Ledger is local. Do not ask for Lovable tokens.`
-- Trader: `git pull --ff-only, then read grok/trader.md. Fill only if this cycle already has score.gate_pass true. Ledger is local. Do not ask for Lovable tokens.`
+- Scorer: `read grok/scorer.md and grok/CYCLE.md. Run bash tools/bootstrap.sh if tools/ is missing. Run one ingest+score. Quiet if the gate fails. Do not fill. Do not git pull every scan. Ledger is local. Do not ask for Lovable tokens.`
+- Trader: `read grok/trader.md. Fill only if this cycle already has score.gate_pass true. Do not git pull on a handoff. Ledger is local. Do not ask for Lovable tokens.`
 
 ## 4. Routines
 
-**Scorer:** every 5 minutes `git pull --ff-only && python3 tools/heartbeat.py --bot scorer`, then one scan from CYCLE.md.
+**Daily (Scorer, once per America/Denver day):** `python3 tools/daily_update.py`. That is the only scheduled git pull. Calling it extra times the same day is a no-op.
 
-**Trader:** no scan of its own. When Scorer hands over `gate_pass true`, `git pull --ff-only` then ticket → post → fill → mark.
+**Scorer scan:** every 5 minutes `python3 tools/heartbeat.py --bot scorer`, then one scan from CYCLE.md. No `git pull`.
+
+**Trader:** no scan of its own. When Scorer hands over `gate_pass true`, ticket → post → fill → mark. No `git pull`.
 
 ## 5. How tweaks work (Cursor)
 
 1. Open this GitHub repo in Cursor.
 2. Edit `grok/scorer.md`, `grok/trader.md`, `grok/CYCLE.md`, or `playbook.md`.
 3. Push to `main`.
-4. Next cycle the Bot pulls and uses the new file. Do not re-paste the profile unless the pointer text itself changed.
+4. Next daily update the Bot pulls and uses the new file. Do not re-paste the profile unless the pointer text itself changed. Do not wait for the next 5-minute scan to git pull.
 
 ## 6. Check it worked
 
 ```bash
-git pull --ff-only
+python3 tools/daily_update.py
 python3 tools/test_ledger_contract.py
 tail -n 20 ledger/events.jsonl
 ```
@@ -83,4 +85,5 @@ Local app: `python3 tools/serve_desk.py` → http://127.0.0.1:8765. That is the 
 - Live Kraken, Global CLOB, Onchain as a ticket venue
 - Ask ≥ 0.80, sports before first pitch, null `model_cents`
 - `learn` on quiet
+- `git pull` on every scan (use the daily update)
 - A third Bot for X, ESPN, or Kraken

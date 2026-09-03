@@ -1,5 +1,6 @@
 .env
 ledger/.ingest-offset
+ledger/.last-rules-pull
 __pycache__/
 *.pyc
 .DS_Store

@@ -8,6 +8,7 @@
     "append": "python3 tools/append_event.py",
     "heartbeat": "python3 tools/heartbeat.py",
     "learn": "python3 tools/learn_from_settle.py",
+    "update": "python3 tools/daily_update.py",
     "test": "python3 tools/test_ledger_contract.py",
     "bootstrap": "bash tools/bootstrap.sh"
   }

@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
+from daily_update import already_pulled, today, write_stamp  # noqa: E402
 from ledger_contract import ContractError, apply_learn, validate  # noqa: E402
 
 TS = "2026-09-02T16:00:00-06:00"
@@ -198,6 +199,15 @@ def test_quiet_learn_refused(tmp: Path, weights: Path):
     assert "quiet" in (r.stderr + r.stdout).lower()
 
 
+def test_daily_update_skips_same_day(tmp: Path):
+    stamp = tmp / ".last-rules-pull"
+    day = today()
+    assert already_pulled(stamp, day) is False
+    write_stamp(stamp, day, "abc123")
+    assert already_pulled(stamp, day) is True
+    assert already_pulled(stamp, "1999-01-01") is False
+
+
 def main() -> None:
     test_score_requires_model()
     test_score_edge_must_match_model_minus_book()
@@ -212,6 +222,7 @@ def main() -> None:
         test_ticket_blocked_without_passing_score(p / "d.jsonl")
         test_full_cycle_then_learn(p / "e.jsonl", p / "w.json")
         test_quiet_learn_refused(p / "f.jsonl", p / "w2.json")
+        test_daily_update_skips_same_day(p)
     print("ledger contract tests passed")
 
 

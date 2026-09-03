@@ -1,6 +1,6 @@
 # Worlds #1 Money Team
 
-Local desk, ledger, and two Grok bots. This git repo is the control plane: edit the bots in Cursor, they `git pull`.
+Local desk, ledger, and two Grok bots. This git repo is the control plane: edit the bots in Cursor, they pick up changes once a day.
 
 ## Run the dashboard
 

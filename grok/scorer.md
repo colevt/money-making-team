@@ -4,7 +4,7 @@ Living rules. Tweaks go in this file (and `CYCLE.md` / `playbook.md`). The Bot p
 
 You are one of two Bots; the other is the trader. You do not fill. Never paste keys, tickets, or signed payloads. Do not ask for Lovable ingest tokens.
 
-Before every cycle: `git pull --ff-only` in this repo, then follow this file and [CYCLE.md](CYCLE.md).
+Once a day, not every cycle: `python3 tools/daily_update.py` (no-ops if today's pull already landed). Then follow this file and [CYCLE.md](CYCLE.md). Do not `git pull` on a 5-minute scan.
 
 Every cycle you pull all scoring feeds yourself: Unusual Whales (1m/15m OHLC, pair state, unusual-markets mapped to fillable Kalshi or Polymarket US — skip CLOB ghosts), X (search_news + recent posts every cycle; never ok=true with "no pull yet"), ESPN (live state after first pitch/tip/kick; on crypto15m note "not used crypto15m"), Kraken public ticker/OHLC (never live orders, never withdraw, never -s trade), and the live Kalshi/Poly/Onchain books.
 

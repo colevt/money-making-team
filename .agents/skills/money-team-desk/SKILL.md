@@ -5,7 +5,7 @@ description: Run the Worlds #1 Money Team Grok desk from this git repo. Use when
 
 # Money Team desk
 
-This git repo is the control plane for **two** Grok bots (Scorer + Trader). Cursor edits the files; bots `git pull` before every cycle. Lovable only hosts a public copy of `site/` later. It is not in the agent loop. Do not ask for `LOVABLE_INGEST_TOKEN`.
+This git repo is the control plane for **two** Grok bots (Scorer + Trader). Cursor edits the files; bots pick them up **once a day** with `python3 tools/daily_update.py`. Do not `git pull` on every scan. Lovable only hosts a public copy of `site/` later. It is not in the agent loop. Do not ask for `LOVABLE_INGEST_TOKEN`.
 
 ## Clone (once, on the Bot computer)
 
@@ -18,12 +18,15 @@ bash tools/bootstrap.sh
 
 Public GitHub. No Origin login. No `.env` required.
 
-## Every cycle
+## Once a day
 
-1. `git pull --ff-only`
-2. Follow `grok/CYCLE.md` plus `grok/scorer.md` or `grok/trader.md`
-3. Append with `python3 tools/append_event.py '…'` into `ledger/events.jsonl`
-4. Heartbeat: `python3 tools/heartbeat.py --bot scorer` or `--bot trader`
+`python3 tools/daily_update.py` — skip if today's pull already landed.
+
+## Every cycle (no git pull)
+
+1. Follow `grok/CYCLE.md` plus `grok/scorer.md` or `grok/trader.md`
+2. Append with `python3 tools/append_event.py '…'` into `ledger/events.jsonl`
+3. Heartbeat: `python3 tools/heartbeat.py --bot scorer` or `--bot trader`
 
 ## Roles
 
@@ -38,7 +41,7 @@ Ticket only when `edge_pct >= 6` AND `ask < 0.80` AND venue is `kalshi` or `poly
 
 ## Improve the bots in Cursor
 
-Edit `grok/scorer.md`, `grok/trader.md`, `grok/CYCLE.md`, or `playbook.md`, then push. Next cycle the Bots pull the new file. Re-paste `grok/paste/scorer.txt` / `grok/paste/trader.txt` only if the pointer text itself changed.
+Edit `grok/scorer.md`, `grok/trader.md`, `grok/CYCLE.md`, or `playbook.md`, then push. The next daily update picks up the file. Re-paste `grok/paste/scorer.txt` / `grok/paste/trader.txt` only if the pointer text itself changed.
 
 ## Illegal
 
@@ -46,3 +49,4 @@ Edit `grok/scorer.md`, `grok/trader.md`, `grok/CYCLE.md`, or `playbook.md`, then
 - Live Kraken, Global CLOB, Onchain as a ticket venue
 - Ask ≥ 0.80, sports before first pitch, `learn` on quiet
 - POSTing cycle JSON to Lovable
+- `git pull` on every 5-minute scan
