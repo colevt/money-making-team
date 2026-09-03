@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
 from append_event import append, load_env, ledger_path  # noqa: E402
+from inventory import close as inv_close, open_buy, qty_wei_of, symbol_of  # noqa: E402
 from ledger_contract import of_kind, passing_score_for, cycle_quiet, load_events  # noqa: E402
 from venues import handler  # noqa: E402
 
@@ -49,17 +50,19 @@ def pending(events: list[dict], cycle_id: str) -> list[dict]:
     if cycle_quiet(events, cycle_id):
         return []
     filled = {
-        (e.get("venue"), e.get("market_id"))
+        (e.get("venue"), e.get("market_id"), e.get("side"))
         for e in of_kind(events, cycle_id, "fill")
     }
     out = []
     for score in of_kind(events, cycle_id, "score"):
         if score.get("gate_pass") is not True:
             continue
-        key = (score.get("venue"), score.get("market_id"))
+        venue = score.get("venue")
+        side = score.get("side") or ("BUY" if venue == "onchain" else "YES")
+        key = (venue, score.get("market_id"), side)
         if key in filled:
             continue
-        if passing_score_for(events, cycle_id, score["venue"], score["market_id"]) is None:
+        if passing_score_for(events, cycle_id, venue, score["market_id"], side) is None:
             continue
         out.append(score)
     return out[:MAX_TICKETS]
@@ -73,18 +76,27 @@ def ticket_id_for(score: dict, result: dict) -> str:
     return f"{score.get('venue')}-{str(score.get('market_id') or '')[:16]}"
 
 
+def side_of(score: dict) -> str:
+    venue = score.get("venue")
+    side = str(score.get("side") or "").upper()
+    if venue == "onchain":
+        return side if side in {"BUY", "SELL"} else "BUY"
+    if side in {"YES", "NO"}:
+        return side
+    return "YES"
+
+
 def append_fill_path(cycle_id: str, score: dict, result: dict, size: float) -> None:
     ts = now_iso()
     venue = score["venue"]
     market_id = score["market_id"]
-    side = "BUY" if venue == "onchain" else score.get("side") or "YES"
-    if venue != "onchain" and side not in {"YES", "NO"}:
-        side = "YES"
+    side = side_of(score)
     tid = ticket_id_for(score, result)
+    entry = score.get("book_cents") or score.get("ask", 0) * 100
     append({
         "ts": ts, "cycle_id": cycle_id, "kind": "ticket", "bot": "trader",
         "venue": venue, "side": side, "size_usd": size,
-        "entry_cents": score.get("book_cents") or score.get("ask", 0) * 100,
+        "entry_cents": entry,
         "market_id": market_id, "market": score.get("market") or market_id,
     })
     append({
@@ -98,6 +110,47 @@ def append_fill_path(cycle_id: str, score: dict, result: dict, size: float) -> N
         "entry_cents": score.get("book_cents") or 0,
         "market_id": market_id,
     })
+    if venue == "onchain":
+        _sync_inventory(score, result, size, tid, cycle_id, side)
+
+
+def _last_px(score: dict) -> float:
+    feats = score.get("features") or {}
+    for key in ("oneinch", "last"):
+        try:
+            n = float(feats.get(key) or 0)
+        except (TypeError, ValueError):
+            n = 0.0
+        if n > 0:
+            return n
+    return 0.0
+
+
+def _sync_inventory(score: dict, result: dict, size: float, tid: str, cycle_id: str, side: str) -> None:
+    symbol = symbol_of(score.get("market_id") or score.get("market"))
+    if not symbol:
+        return
+    px = _last_px(score)
+    if side == "BUY":
+        qty = result.get("dst_amount") or result.get("qty_wei")
+        try:
+            qty_wei = int(str(qty))
+        except (TypeError, ValueError):
+            qty_wei = 0
+        if qty_wei <= 0:
+            return
+        open_buy(
+            symbol,
+            qty_wei=qty_wei,
+            entry_px=px or 0.0,
+            size_usd=size,
+            ticket_id=tid,
+            cycle_id=cycle_id,
+            market_id=score.get("market_id") or "",
+        )
+        return
+    if side == "SELL":
+        inv_close(symbol, exit_px=px or None)
 
 
 def main() -> None:
@@ -119,7 +172,8 @@ def main() -> None:
     results = []
     for score in scores:
         size = size_of(score)
-        if total + size > MAX_TOTAL_USD + 1e-9:
+        side = side_of(score)
+        if side != "SELL" and total + size > MAX_TOTAL_USD + 1e-9:
             results.append({
                 "venue": score.get("venue"),
                 "market_id": score.get("market_id"),
@@ -132,10 +186,17 @@ def main() -> None:
             "venue": score.get("venue"),
             "market_id": score.get("market_id"),
             "market": score.get("market"),
-            "side": score.get("side") or ("BUY" if score.get("venue") == "onchain" else "YES"),
+            "side": side,
             "size_usd": size,
             "entry_cents": score.get("book_cents"),
         }
+        if score.get("venue") == "onchain" and score.get("book_kind") == "crypto_scalp":
+            ticket["slippage"] = os.environ.get("SCALP_SLIPPAGE", "0.3")
+        if score.get("venue") == "onchain" and side == "SELL":
+            symbol = symbol_of(score.get("market_id") or score.get("market"))
+            qty = qty_wei_of(symbol) if symbol else None
+            if qty:
+                ticket["qty_wei"] = qty
         try:
             result = handler(score["venue"]).execute(ticket, live=args.live)
         except Exception as err:
@@ -143,7 +204,8 @@ def main() -> None:
         result["size_usd"] = size
         results.append(result)
         if result.get("ok") and not (args.live and not result.get("live")):
-            total += size
+            if side != "SELL":
+                total += size
         if args.live and args.append and result.get("ok") and result.get("live"):
             append_fill_path(args.cycle_id, score, result, size)
     n_ok = sum(1 for r in results if r.get("ok"))

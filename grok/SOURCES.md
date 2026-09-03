@@ -8,18 +8,18 @@ Refresh public + desk snapshot: `python3 tools/pull_sources.py`
 
 ## Scoring feeds (Scorer, every cycle)
 
-These **eight** keys are **required** on every `ingest` event. Each `{ ok, lag_s, note }`. Use **all** of them in the model — do not score off one feed. Score **every** fillable market on Kalshi, Polymarket US, and 1inch; one cycle may fire several tickets.
+These **eight** keys are **required** on every `ingest` event. Each `{ ok, lag_s, note }`. Use **all** of them in the model — do not score off one feed. Score **every** fillable market on Kalshi, Polymarket US, and 1inch; one cycle may fire several tickets. Onchain buy-low/sell-high scores come from `python3 tools/scalp.py` (tape + learned weights), not from a guess.
 
 | # | Ingest key | Source | How to pull | What to take | Max lag | Weight key |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `unusual_whales` | Unusual Whales plugin `4021654` | Scorer plugin | 1m + 15m OHLC; pair state; flow / sweeps / unusual size; IBIT + MSTR in US hours; unusual-markets mapped to a **fillable** Kalshi or Polymarket US ticker (skip CLOB ghosts) | 600s (tape >10m → `ok=false`) | `uw` |
-| 2 | `x_news` | X plugin `4022021` | Scorer plugin. **Must actually pull.** | `search_news` + recent posts every cycle. Beat writers, injuries, lineups, headline lag vs the book. `ok=true` with note `no pull yet` is rejected. | 300s | `x` |
-| 3 | `espn` | ESPN public game state | Public HTTPS, no plugin | Live score, inning/clock, period, started-or-not. Sports only after first pitch/tip/kick. On `crypto15m` still pull, note `not used crypto15m`. | 45s on sports; idle note OK on crypto | `espn` |
-| 4 | `crypto` | Kraken plugin `4031115` + UW spots | Kraken **public ticker / OHLC / paper**. Never `-s trade`, never withdraw. | BTC, ETH, SOL, XRP spot vs UW. Overnight and Kalshi 15m: OHLC vs `KXBTC15M` / `KXETH15M` / `KXXRP15M`. Fair for 1inch. | 180s | `crypto` |
+| 1 | `unusual_whales` | Unusual Whales plugin `4021654` | Scorer plugin | 1m + 15m OHLC; pair state; flow / sweeps / unusual size; IBIT + MSTR in US hours; unusual-markets mapped to a **fillable** Kalshi or Polymarket US ticker (skip CLOB ghosts). Also pass `{ETH:{side:buy}}` into `crypto_tape.py --flow`. | 600s (tape >10m → `ok=false`) | `uw` |
+| 2 | `x_news` | X plugin `4022021` | Scorer plugin. **Must actually pull.** | `python3 tools/x_tape.py` first (next queries + last delta), then `search_news` + posts, then `python3 tools/x_tape.py --record`. Beat writers, injuries, lineups, headline lag vs the book. `ok=true` with note `no pull yet` is rejected. | 300s | `x` |
+| 3 | `espn` | ESPN public game state | Public HTTPS, no plugin | Live score, inning/clock, period, started-or-not. Sports only after first pitch/tip/kick. On `crypto15m` / `crypto_scalp` still pull, note `not used crypto15m`. | 45s on sports; idle note OK on crypto | `espn` |
+| 4 | `crypto` | Kraken plugin `4031115` + UW spots | Kraken **public ticker / OHLC / paper**. Never `-s trade`, never withdraw. Also `python3 tools/crypto_tape.py` (1m bars → local high/low/VWAP). | BTC, ETH, SOL, XRP spot vs UW. Overnight and Kalshi 15m: OHLC vs `KXBTC15M` / `KXETH15M` / `KXXRP15M`. Fair for 1inch. Scalp: last vs VWAP vs local high/low. | 180s | `crypto` |
 | 5 | `kalshi` | Kalshi live book | Scorer reads the book; Trader posts via `tools/execute.py` | Bid/ask/mark/depth on **all** fillable tickers. | 20s | `book` |
 | 6 | `polymarket_us` | Polymarket US live book | Scorer reads the book; Trader posts via `tools/execute.py` | Bid/ask/mark/depth on **all** fillable US tickers. | 20s | `book` |
-| 7 | `osiris` | OSIRIS API https://osirisai.live/docs | `python3 tools/osiris.py` — no key. Then read `ledger/osiris_snapshot.json`. | **Every keyless GET feed** (27): health, stats, flights (military + GPS jamming counts), satellites, space-weather, earthquakes, fires, weather, air-quality, radar, conflicts, frontlines, gdelt, country-risk, news, live-news, markets, crypto, scm-suppliers, cctv counts, infrastructure, maritime, geo, cyber-threats, cyber-attacks, malware, sdk ingest status. Geometry is compacted. Use all of it in the model. `max_risk>=7`, quake mag≥6, jamming, hot infra, cyber CRITICAL tied to a market → skip unless the book moved. | 90s | `x` |
-| 8 | `onchain` | 1inch Swap API v6.1 Polygon | `python3 tools/oneinch.py` (needs `ONEINCH_API_KEY`) | USDC → WETH/WBTC/SOL quotes vs Kraken/UW. Ticket venue. Wallet `0xcE01ddD2141e4efDB929265A538981043b7449BF`, native USDC `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`. POL is gas. | 20s | `book` |
+| 7 | `osiris` | OSIRIS API https://osirisai.live/docs | `python3 tools/osiris.py` — no key. Then read `ledger/osiris_snapshot.json`. | **Every keyless GET feed** (27). Geometry is compacted. Use all of it in the model. `max_risk>=7`, quake mag≥6, jamming, hot infra, cyber CRITICAL tied to a market → skip unless the book moved. | 90s | `x` |
+| 8 | `onchain` | 1inch Swap API v6.1 Polygon | `python3 tools/oneinch.py` (needs `ONEINCH_API_KEY`) | USDC → WETH/WBTC/SOL quotes vs Kraken/UW **and** vs the crypto tape VWAP. Ticket venue for both 6% mispricing (`crypto15m`) and 0.35% scalp (`crypto_scalp`). Wallet `0xcE01ddD2141e4efDB929265A538981043b7449BF`. POL is gas. | 20s | `book` |
 
 Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A score that ignores OSIRIS, X, UW, or 1inch (on crypto15m) is incomplete.
 
@@ -29,7 +29,7 @@ Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A 
 | --- | --- | --- | --- |
 | Live desk API | `GET https://merger-sole-additional-checked.trycloudflare.com/api/desk` | Blotter, cash, feed health, last intake | Cross-check books + runway. |
 | Onchain USDC + 1inch | Wallet `0xcE01…49BF`, token `0x3c499c…3359`, `python3 tools/oneinch.py` | Native USDC **and** swap quotes. POL is gas. | Ticket venue `onchain` via 1inch. Do not mix this USDC into Kalshi/Poly size. |
-| This repo ledger | `ledger/events.jsonl`, `ledger/weights.json` | Prior ingest/score/settle, two weight books | `sports` vs `crypto15m`. |
+| This repo ledger | `ledger/events.jsonl`, `ledger/weights.json`, `ledger/crypto_tape.json`, `ledger/learn_tape.jsonl` | Prior ingest/score/settle, three weight books, scalp params, feature tape | `sports` vs `crypto15m` vs `crypto_scalp`. Learn after every settle. |
 
 ## Hours → which book
 
@@ -37,6 +37,7 @@ Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A 
 | --- | --- | --- | --- |
 | US hours | `sports` | UW flow (IBIT/MSTR), X lag, OSIRIS news/risk, ESPN live game, Kalshi or Poly US book | `crypto` weight |
 | Overnight + Kalshi 15m crypto (also daytime 15m) | `crypto15m` | UW OHLC + Kraken + OSIRIS `/api/crypto`+`/api/markets` vs `KXBTC15M` / `KXETH15M` / `KXXRP15M` **and** 1inch USDC→WETH/WBTC/SOL | `espn` weight |
+| Every scan, day or night | `crypto_scalp` | Crypto tape (local high/low/VWAP) + 1inch + UW flow + X acceleration. `python3 tools/scalp.py`. Buy dip, sell high, many $1 round-trips. | `espn` weight |
 
 ## Not sources
 
@@ -54,7 +55,7 @@ Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A 
 | Action | Cadence | Command |
 | --- | --- | --- |
 | Rules from Cursor | Once per America/Denver day | `python3 tools/daily_update.py` |
-| All sources above | Every 5-minute scan | Scorer: plugins + public pulls. Snapshot: `python3 tools/pull_sources.py` |
+| All sources above | Every 5-minute scan | Scorer: plugins + public pulls. Snapshot: `python3 tools/pull_sources.py`. Tape: `python3 tools/crypto_tape.py`. Scalp scores: `python3 tools/scalp.py --cycle_id … --append` |
 | Heartbeat | Every 5 minutes | `python3 tools/heartbeat.py --bot scorer` |
 
 ## Ingest example (all eight keys)

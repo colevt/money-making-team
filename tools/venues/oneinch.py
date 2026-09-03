@@ -153,7 +153,7 @@ def pull_quotes(fairs: dict | None = None) -> dict:
     return snap
 
 
-def swap_tx(src: str, dst: str, amount: int, side: str = "BUY") -> dict:
+def swap_tx(src: str, dst: str, amount: int, side: str = "BUY", slippage: str | None = None) -> dict:
     """Return 1inch unsigned tx. BUY = USDC→token. SELL = token→USDC."""
     load_env()
     if not has_key():
@@ -161,13 +161,14 @@ def swap_tx(src: str, dst: str, amount: int, side: str = "BUY") -> dict:
     wallet = env("ONCHAIN_ADDRESS", default=WALLET)
     if side == "SELL":
         src, dst = dst, src
+    slip = str(slippage or os.environ.get("ONEINCH_SLIPPAGE", SLIPPAGE) or "1")
     url = qs(f"{BASE}/swap", {
         "src": src,
         "dst": dst,
         "amount": str(amount),
         "from": wallet.lower(),
         "origin": wallet.lower(),
-        "slippage": SLIPPAGE,
+        "slippage": slip,
         "disableEstimate": "false",
         "allowPartialFill": "false",
     })
@@ -258,7 +259,15 @@ def execute(ticket: dict, live: bool = False) -> dict:
         return {"ok": False, "live": False, "venue": "onchain", "note": "size_usd required"}
     amount = int(round(size * 1e6))
     side = str(ticket.get("side") or "BUY").upper()
-    built = swap_tx(USDC, meta["address"], amount, side=side)
+    if side == "SELL":
+        qty = ticket.get("qty_wei") or ticket.get("amount_wei")
+        try:
+            amount = int(str(qty)) if qty is not None else 0
+        except (TypeError, ValueError):
+            amount = 0
+        if amount <= 0:
+            return {"ok": False, "live": False, "venue": "onchain", "note": "SELL needs qty_wei from inventory"}
+    built = swap_tx(USDC, meta["address"], amount, side=side, slippage=ticket.get("slippage"))
     built["venue"] = "onchain"
     built["market_id"] = ticket.get("market_id")
     if not built.get("ok") or not live:

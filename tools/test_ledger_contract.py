@@ -113,6 +113,54 @@ def test_fresh_ingest_allows_gate(tmp: Path):
     validate(base_score(), tmp)
 
 
+def test_scalp_gate_is_bps_not_six(tmp: Path):
+    write_ledger(tmp, [base_ingest()])
+    validate(base_score(
+        venue="onchain",
+        market_id="USDC-WETH",
+        market="ETH scalp",
+        book_kind="crypto_scalp",
+        model_cents=100.0,
+        book_cents=99.6,
+        edge_pct=0.4,
+        ask=0.996,
+        bid=0.996,
+        side="BUY",
+        reason="local low vs VWAP",
+        feeds_used=["crypto", "book"],
+        weights={"uw": 0.30, "x": 0.10, "espn": 0.05, "crypto": 0.35, "book": 0.20},
+    ), tmp)
+    expect_fail(base_score(
+        venue="onchain",
+        market_id="USDC-WETH",
+        market="ETH scalp",
+        book_kind="crypto_scalp",
+        model_cents=100.0,
+        book_cents=99.8,
+        edge_pct=0.2,
+        ask=0.998,
+        bid=0.998,
+        gate_pass=True,
+        side="BUY",
+        reason="too small",
+        feeds_used=["crypto", "book"],
+        weights={"uw": 0.30, "x": 0.10, "espn": 0.05, "crypto": 0.35, "book": 0.20},
+    ), tmp, "gate_pass")
+    expect_fail(base_score(
+        venue="kalshi",
+        market_id="KXXRP15M-26SEP021700-00",
+        book_kind="crypto_scalp",
+        model_cents=100.0,
+        book_cents=93.0,
+        edge_pct=7.0,
+        ask=0.93,
+        bid=0.93,
+        gate_pass=True,
+        reason="scalp is 1inch only",
+        feeds_used=["crypto", "book"],
+    ), tmp, "onchain")
+
+
 def test_onchain_gate_uses_fair_cap(tmp: Path):
     write_ledger(tmp, [base_ingest()])
     validate(base_score(
@@ -242,6 +290,11 @@ def test_learn_formula_freezes_cross_book():
     assert "espn" not in d2
     assert d2["uw"] == 0.02
     assert after2["espn"] == crypto["espn"]
+    scalp = {"uw": 0.30, "x": 0.10, "espn": 0.05, "crypto": 0.35, "book": 0.20}
+    after3, d3 = apply_learn(scalp, ["uw", "espn", "crypto"], "WON", "crypto_scalp")
+    assert "espn" not in d3
+    assert d3["crypto"] == 0.02
+    assert after3["espn"] == scalp["espn"]
 
 
 def test_full_cycle_then_learn(tmp: Path, weights: Path):
@@ -336,6 +389,7 @@ def main() -> None:
         test_stale_uw_blocks_gate(p / "b.jsonl")
         test_fresh_ingest_allows_gate(p / "c.jsonl")
         test_onchain_gate_uses_fair_cap(p / "c3.jsonl")
+        test_scalp_gate_is_bps_not_six(p / "c3b.jsonl")
         test_dead_poly_does_not_block_kalshi(p / "c4.jsonl")
         test_two_tickets_same_cycle(p / "c5.jsonl")
         test_cycle_quiet_blocks_all_tickets(p / "c6.jsonl")

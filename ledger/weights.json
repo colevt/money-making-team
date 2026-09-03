@@ -14,11 +14,26 @@
       "espn": 0.05,
       "crypto": 0.3,
       "book": 0.25
+    },
+    "crypto_scalp": {
+      "uw": 0.3,
+      "x": 0.1,
+      "espn": 0.05,
+      "crypto": 0.35,
+      "book": 0.2
     }
   },
   "settled": {
     "sports": 0,
-    "crypto15m": 0
+    "crypto15m": 0,
+    "crypto_scalp": 0
   },
-  "note": "Two books. ESPN does not train on crypto15m. Crypto does not train on sports. Gate stays 6% until 60 settled tickets on a book."
+  "scalp": {
+    "min_dip_pct": 0.35,
+    "take_pct": 0.4,
+    "stop_pct": 0.45,
+    "lookback": 12,
+    "max_hold_cycles": 8
+  },
+  "note": "Three books. ESPN frozen on crypto15m and crypto_scalp. Crypto frozen on sports. PM gate stays 6%. Scalp gate is 0.35% vs VWAP and learns dip/take/stop from its own P&L."
 }

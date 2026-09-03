@@ -11,9 +11,11 @@
     "update": "python3 tools/daily_update.py",
     "osiris": "python3 tools/osiris.py",
     "oneinch": "python3 tools/oneinch.py",
+    "tape": "python3 tools/crypto_tape.py",
+    "scalp": "python3 tools/scalp.py",
     "execute": "python3 tools/execute.py",
     "sources": "python3 tools/pull_sources.py",
-    "test": "python3 tools/test_ledger_contract.py",
+    "test": "python3 tools/test_ledger_contract.py && python3 tools/test_scalp.py",
     "bootstrap": "bash tools/bootstrap.sh"
   }
 }

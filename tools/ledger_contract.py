@@ -12,7 +12,7 @@ KINDS = {
 }
 BOTS = {"scorer", "news", "espn", "crypto", "trader"}
 VENUES = {"kalshi", "polymarket_us", "onchain"}
-BOOK_KINDS = {"sports", "crypto15m"}
+BOOK_KINDS = {"sports", "crypto15m", "crypto_scalp"}
 WEIGHT_KEYS = ("uw", "x", "espn", "crypto", "book")
 INGEST_FEEDS = (
     "unusual_whales", "x_news", "espn", "crypto", "kalshi", "polymarket_us", "osiris",
@@ -38,6 +38,7 @@ HEALTH = {"ok", "warn", "bad"}
 SIDES = {"YES", "NO", "BUY", "SELL"}
 CONSTRAINTS = {"scoring", "execution"}
 GATE_PCT = 6.0
+SCALP_GATE_PCT = 0.35  # 35 bps vs VWAP / local low; PM books stay at 6%
 ASK_CAP = 0.80
 ONCHAIN_ASK_CAP = 1.00  # 1inch vs Kraken/UW fair; do not pay above fair
 LEARN_STEP = 0.02
@@ -58,6 +59,14 @@ STALE_S = {
 DEFAULT_WEIGHTS = {
     "sports": {"uw": 0.12, "x": 0.18, "espn": 0.35, "crypto": 0.05, "book": 0.30},
     "crypto15m": {"uw": 0.28, "x": 0.12, "espn": 0.05, "crypto": 0.30, "book": 0.25},
+    "crypto_scalp": {"uw": 0.30, "x": 0.10, "espn": 0.05, "crypto": 0.35, "book": 0.20},
+}
+DEFAULT_SCALP = {
+    "min_dip_pct": SCALP_GATE_PCT,
+    "take_pct": 0.40,
+    "stop_pct": 0.45,
+    "lookback": 12,
+    "max_hold_cycles": 8,
 }
 
 
@@ -119,7 +128,13 @@ def of_kind(events: list[dict], cycle_id: str, kind: str) -> list[dict]:
     return [e for e in events if e.get("cycle_id") == cycle_id and e.get("kind") == kind]
 
 
-def passing_score_for(events: list[dict], cycle_id: str, venue: str, market_id: str) -> dict | None:
+def passing_score_for(
+    events: list[dict],
+    cycle_id: str,
+    venue: str,
+    market_id: str,
+    side: str | None = None,
+) -> dict | None:
     found = None
     for e in of_kind(events, cycle_id, "score"):
         if (
@@ -127,6 +142,9 @@ def passing_score_for(events: list[dict], cycle_id: str, venue: str, market_id: 
             and e.get("venue") == venue
             and e.get("market_id") == market_id
         ):
+            score_side = e.get("side")
+            if side and score_side and score_side != side:
+                continue
             found = e
     return found
 
@@ -151,10 +169,20 @@ def ask_cap_for(venue: str | None) -> float:
     return ASK_CAP
 
 
+def gate_pct_for(event: dict | None = None, book_kind: str | None = None) -> float:
+    kind = book_kind or (event or {}).get("book_kind")
+    if kind == "crypto_scalp":
+        return SCALP_GATE_PCT
+    return GATE_PCT
+
+
 def gate_pass_value(event: dict) -> bool:
     venue = event.get("venue")
+    kind = event.get("book_kind")
+    if kind == "crypto_scalp" and venue != "onchain":
+        return False
     return (
-        float(event.get("edge_pct") or 0) >= GATE_PCT
+        float(event.get("edge_pct") or 0) >= gate_pct_for(event)
         and float(event.get("ask") or 1) < ask_cap_for(venue)
         and venue in VENUES
     )
@@ -165,7 +193,7 @@ def ingest_kill_reason(
 ) -> str | None:
     feeds = ingest.get("feeds") or {}
     needed = set(INGEST_FEEDS)
-    if book_kind == "crypto15m":
+    if book_kind in {"crypto15m", "crypto_scalp"}:
         needed.discard("espn")
     if book_kind == "sports":
         needed.discard("crypto")
@@ -227,7 +255,7 @@ def apply_learn(weights: dict, feeds_used: list[str], result: str, book_kind: st
     if not used:
         used = list(WEIGHT_KEYS)
     frozen = set()
-    if book_kind == "crypto15m":
+    if book_kind in {"crypto15m", "crypto_scalp"}:
         frozen.add("espn")
     if book_kind == "sports":
         frozen.add("crypto")
@@ -247,6 +275,57 @@ def apply_learn(weights: dict, feeds_used: list[str], result: str, book_kind: st
     pivot = "book" if "book" not in frozen else free[-1]
     out[pivot] = round(out[pivot] + drift, 4)
     return out, {k: v for k, v in deltas.items() if v}
+
+
+def apply_scalp_learn(params: dict, result: str) -> dict:
+    """Nudge dip/take/stop from this ticket's P&L. Bounded so it cannot run away."""
+    out = dict(DEFAULT_SCALP)
+    for k, v in DEFAULT_SCALP.items():
+        try:
+            if k in (params or {}):
+                out[k] = type(v)(params[k])
+        except (TypeError, ValueError):
+            continue
+    won = result == "WON"
+    dip = float(out["min_dip_pct"])
+    take = float(out["take_pct"])
+    stop = float(out["stop_pct"])
+    if won:
+        out["min_dip_pct"] = round(max(0.25, dip - 0.01), 4)
+        out["take_pct"] = round(max(0.30, take - 0.005), 4)
+        out["stop_pct"] = round(min(0.80, stop + 0.005), 4)
+    else:
+        out["min_dip_pct"] = round(min(1.20, dip + 0.03), 4)
+        out["take_pct"] = round(min(0.90, take + 0.02), 4)
+        out["stop_pct"] = round(max(0.30, stop - 0.02), 4)
+    return out
+
+
+def load_books(path: Path) -> dict:
+    if path.is_file():
+        data = json.loads(path.read_text())
+    else:
+        data = {}
+    books = data.get("books") or {}
+    for kind in BOOK_KINDS:
+        if kind not in books:
+            books[kind] = dict(DEFAULT_WEIGHTS[kind])
+    data["books"] = books
+    data.setdefault("gate_pct", GATE_PCT)
+    settled = data.get("settled") or {}
+    for kind in BOOK_KINDS:
+        settled.setdefault(kind, 0)
+    data["settled"] = settled
+    scalp = dict(DEFAULT_SCALP)
+    raw = data.get("scalp") or {}
+    for k, v in DEFAULT_SCALP.items():
+        try:
+            if k in raw:
+                scalp[k] = type(v)(raw[k])
+        except (TypeError, ValueError):
+            continue
+    data["scalp"] = scalp
+    return data
 
 
 def validate(event: dict, ledger_path: Path | None = None) -> None:
@@ -343,9 +422,11 @@ def _validate_score(event: dict, events: list[dict]) -> None:
         fail("venue must be kalshi, polymarket_us, or onchain")
     book_kind = _str(event, "book_kind")
     if book_kind not in BOOK_KINDS:
-        fail("book_kind must be sports or crypto15m")
-    if venue == "onchain" and book_kind != "crypto15m":
-        fail("onchain tickets are crypto15m only (1inch vs Kraken/UW)")
+        fail("book_kind must be sports, crypto15m, or crypto_scalp")
+    if venue == "onchain" and book_kind not in {"crypto15m", "crypto_scalp"}:
+        fail("onchain tickets are crypto15m or crypto_scalp only")
+    if book_kind == "crypto_scalp" and venue != "onchain":
+        fail("crypto_scalp is onchain 1inch only")
     used = event.get("feeds_used")
     if not isinstance(used, list) or not used:
         fail("score requires feeds_used[] (uw|x|espn|crypto|book)")
@@ -356,10 +437,11 @@ def _validate_score(event: dict, events: list[dict]) -> None:
         validate_weights(event["weights"], "weights")
     expected = gate_pass_value(event)
     cap = ask_cap_for(venue)
+    pct = gate_pct_for(event)
     if event.get("gate_pass") is not expected:
         fail(
             f"gate_pass must be {expected} "
-            f"(edge>={GATE_PCT:g} and ask<{cap:g} and kalshi|polymarket_us|onchain)"
+            f"(edge>={pct:g} and ask<{cap:g} and kalshi|polymarket_us|onchain)"
         )
 
     ingest = last_of(events, event["cycle_id"], "ingest")
@@ -387,7 +469,7 @@ def _validate_ticket(event: dict, events: list[dict]) -> None:
     market_id = _str(event, "market_id")
     _str(event, "market")
     if events:
-        score = passing_score_for(events, event["cycle_id"], venue, market_id)
+        score = passing_score_for(events, event["cycle_id"], venue, market_id, side)
         if score is None:
             fail("ticket requires matching score.gate_pass for this venue and market_id")
         if cycle_quiet(events, event["cycle_id"]) is not None:
@@ -423,7 +505,7 @@ def _validate_fill(event: dict, events: list[dict]) -> None:
     _num(event, "entry_cents")
     market_id = _str(event, "market_id")
     if events:
-        score = passing_score_for(events, event["cycle_id"], venue, market_id)
+        score = passing_score_for(events, event["cycle_id"], venue, market_id, event.get("side"))
         if score is None:
             fail("fill requires matching score.gate_pass for this venue and market_id")
         posts = [
@@ -451,7 +533,7 @@ def _validate_learn(event: dict, events: list[dict]) -> None:
         fail("learn must be bot=scorer")
     book_kind = _str(event, "book_kind")
     if book_kind not in BOOK_KINDS:
-        fail("book_kind must be sports or crypto15m")
+        fail("book_kind must be sports, crypto15m, or crypto_scalp")
     _str(event, "gate_notes")
     deltas = event.get("weight_deltas")
     if not isinstance(deltas, dict) or not deltas:
@@ -460,8 +542,9 @@ def _validate_learn(event: dict, events: list[dict]) -> None:
     if extra:
         fail(f"weight_deltas unknown keys {extra}")
     validate_weights(event.get("weights") or {}, "weights")
-    if "gate_pct" in event and float(event["gate_pct"]) != GATE_PCT:
-        fail(f"gate stays {GATE_PCT:g} until 60 settled tickets")
+    expected_gate = gate_pct_for(book_kind=book_kind)
+    if "gate_pct" in event and abs(float(event["gate_pct"]) - expected_gate) > 1e-9:
+        fail(f"gate stays {expected_gate:g} on {book_kind}")
     settle = last_of(events, event["cycle_id"], "settle")
     if events and settle is None:
         fail("learn requires settle in the same cycle_id")

@@ -5,6 +5,9 @@ ledger/sources_snapshot.json
 ledger/osiris_snapshot.json
 ledger/oneinch_snapshot.json
 ledger/x_tape.json
+ledger/crypto_tape.json
+ledger/inventory.json
+ledger/learn_tape.jsonl
 __pycache__/
 *.pyc
 .DS_Store

@@ -19,7 +19,7 @@ A fired ticket is illegal unless this cycle already has a fresh `ingest` and a `
 | kind | Who | Extra fields |
 | --- | --- | --- |
 | `ingest` | scorer | `feeds`: **all eight** keys below. Each `{ ok, lag_s, note }`. `x_news.ok` cannot be true with note `no pull`. `osiris.ok` cannot be true if incomplete. `onchain.ok` cannot be true if no quote. |
-| `score` | scorer | One per market×venue. `edge_pct`, `ask`, `bid`, `model_cents`, `book_cents`, `weights`, `gate_pass`, `venue` `kalshi`\|`polymarket_us`\|`onchain`, `market_id`, `market`, `book_kind` `sports`\|`crypto15m`, `feeds_used`, `reason` |
+| `score` | scorer | One per market×venue. `edge_pct`, `ask`, `bid`, `model_cents`, `book_cents`, `weights`, `gate_pass`, `venue` `kalshi`\|`polymarket_us`\|`onchain`, `market_id`, `market`, `book_kind` `sports`\|`crypto15m`\|`crypto_scalp`, `feeds_used`, `reason`. Scalp scores also have `side` BUY\|SELL and `features`. |
 | `quiet` | scorer | `reason`. Omit `market_id` for a cycle stand-down (blocks all tickets). Include `market_id` (+ `venue`) to skip one name only. |
 | `ticket` | trader | `venue` `kalshi` \| `polymarket_us` \| `onchain`, `side` YES\|NO or BUY\|SELL, `size_usd`, `entry_cents`, `market_id`, `market`. Must match a passing score for that venue+market. Many tickets per cycle are legal. |
 | `post` | trader | `venue`, `market_id`, `confirmed_live` **true**, `under_cap` **true** |
@@ -27,7 +27,7 @@ A fired ticket is illegal unless this cycle already has a fresh `ingest` and a `
 | `mark` | trader | `ticket_id`, `mark_cents`, `unrealized_usd` |
 | `flatten` | trader | `ticket_id`, `trigger` |
 | `settle` | trader | `ticket_id`, `result` `WON` \| `LOST`, `pl_usd`, `settle_cents` |
-| `learn` | scorer | Only after settle. Prefer `python3 tools/learn_from_settle.py --cycle_id …`. Fields: `book_kind`, `weight_deltas`, `weights`, `gate_notes`, `gate_pct` (must stay 6). |
+| `learn` | scorer | Only after settle. Prefer `python3 tools/learn_from_settle.py --cycle_id …`. Fields: `book_kind`, `weight_deltas`, `weights`, `gate_notes`, `gate_pct` (6 on PM books, 0.35 on `crypto_scalp`). Scalp learn also writes `scalp` params. |
 | `feed_health` | any | `name`, `state` `ok` \| `warn` \| `bad`, `detail` |
 | `heartbeat` | any | `role`, `constraint` (`scoring` \| `execution`). Emit every 5 minutes via `python3 tools/heartbeat.py`. |
 
@@ -53,18 +53,21 @@ ESPN may be `ok` with note `not used crypto15m` on crypto books. Crypto may sit 
 
 Kalshi / Polymarket US: `gate_pass` iff `edge_pct >= 6` **and** `ask < 0.80` **and** that venue’s book is fresh.
 
-Onchain: `gate_pass` iff `edge_pct >= 6` **and** `ask < 1.00` **and** `book_kind=crypto15m` **and** 1inch quoted. `model_cents` is 100 (Kraken/UW fair); `book_cents` is `1inch_price/fair*100`.
+Onchain `crypto15m`: `gate_pass` iff `edge_pct >= 6` **and** `ask < 1.00` **and** 1inch quoted. `model_cents` is 100 (Kraken/UW fair); `book_cents` is `1inch_price/fair*100`.
 
-`edge_pct` must equal `model_cents - book_cents` (±0.25). `ask` must match `book_cents/100`. Many passing scores per `cycle_id` are legal. A ticket must match one of them by `venue` + `market_id`.
+Onchain `crypto_scalp`: `gate_pass` iff `edge_pct >= 0.35` **and** `ask < 1.00`. Scores come from `python3 tools/scalp.py` (tape VWAP / local high-low + learned weights). BUY the dip; SELL the same lot at take/high/stop.
 
-## Two weight books
+`edge_pct` must equal `model_cents - book_cents` (±0.25). `ask` must match `book_cents/100`. Many passing scores per `cycle_id` are legal. A ticket must match one of them by `venue` + `market_id` (+ `side` when the score has a side).
 
-Do not reuse MLB ESPN weights on KXBTC/KXXRP. Stored in [weights.json](weights.json):
+## Three weight books
+
+Do not reuse MLB ESPN weights on KXBTC/KXXRP or on ETH scalps. Stored in [weights.json](weights.json):
 
 - `sports` — UW flow, X lag, ESPN game state, live book. Crypto weight frozen.
-- `crypto15m` — UW OHLC, Kraken, OSIRIS crypto/markets, Kalshi 15m book. ESPN weight frozen.
+- `crypto15m` — UW OHLC, Kraken, OSIRIS crypto/markets, Kalshi 15m book / 1inch fair. ESPN weight frozen.
+- `crypto_scalp` — crypto tape + 1inch + UW flow + X. ESPN frozen. Also stores `scalp.min_dip_pct` / `take_pct` / `stop_pct`, which nudge after each scalp settle.
 
-Only `settle` retunes, via `tools/learn_from_settle.py`: ±0.02 on `feeds_used`, renormalize, gate stays 6% until 60 settled tickets **on that book**.
+Every settle retunes via `tools/learn_from_settle.py`: ±0.02 on `feeds_used`, renormalize, feature row appended to `learn_tape.jsonl`. PM `gate_pct` stays 6%. Scalp gate stays 0.35% as the contract floor; dip/take/stop may move inside bounds.
 
 ## Emit from a Grok bot
 

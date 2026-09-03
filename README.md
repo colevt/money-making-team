@@ -12,7 +12,7 @@ Open http://127.0.0.1:8765. That page polls live `/api/desk`, shows Kalshi / Pol
 
 ## Connect the two Grok bots
 
-**Scorer** pulls UW, X, ESPN, Kraken, OSIRIS, 1inch, and the books — score every fillable market. **Trader** posts Kalshi, Polymarket US, **and** Polygon 1inch for every passing score this cycle. Do not add more Bots.
+**Scorer** pulls UW, X, ESPN, Kraken, OSIRIS, 1inch, crypto tape, and the books — score every fillable market **and** run `scalp.py` (buy low / sell high). **Trader** posts Kalshi, Polymarket US, **and** Polygon 1inch for every passing score this cycle, including scalp SELL. Do not add more Bots.
 
 Clone (public GitHub, no token):
 
@@ -31,6 +31,7 @@ python3 tools/append_event.py '{"ts":"2026-09-02T14:10:00-06:00","cycle_id":"c-d
 python3 tools/heartbeat.py
 python3 tools/learn_from_settle.py --cycle_id c-demo
 python3 tools/test_ledger_contract.py
+python3 tools/test_scalp.py
 ```
 
 (`tools/append-event.mjs` is the same contract if Node is installed.)

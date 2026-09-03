@@ -30,14 +30,14 @@ Public GitHub. No Origin login. No `.env` required.
 
 ## Roles
 
-- **Scorer** (`bot=scorer`): pull Unusual Whales, X, ESPN, Kraken, OSIRIS (`python3 tools/osiris.py`), 1inch (`python3 tools/oneinch.py`), live books. One `score` per fillable Kalshi, Polymarket US, and onchain market. Cycle `quiet` only if none pass. Never fill. After settle: `python3 tools/learn_from_settle.py --cycle_id … --ticket_id …`
-- **Trader** (`bot=trader`): `python3 tools/execute.py --cycle_id …` then `--live --append`. Fill **every** passing score on kalshi / polymarket_us / onchain. Does not score. Does not learn.
+- **Scorer** (`bot=scorer`): pull Unusual Whales, X, ESPN, Kraken, OSIRIS (`python3 tools/osiris.py`), 1inch (`python3 tools/oneinch.py`), crypto tape (`python3 tools/crypto_tape.py`), X tape, live books. One `score` per fillable Kalshi / Polymarket US / 1inch-fair market. Scalp BUY/SELL scores from `python3 tools/scalp.py --cycle_id … --append` — do not invent them. Cycle `quiet` only if none pass. Never fill. After settle: `python3 tools/learn_from_settle.py --cycle_id … --ticket_id …`
+- **Trader** (`bot=trader`): `python3 tools/execute.py --cycle_id …` then `--live --append`. Fill **every** passing score on kalshi / polymarket_us / onchain including scalp SELL. Does not score. Does not learn.
 
 Do not create extra Bots for X, ESPN, or Kraken.
 
 ## Gate
 
-Ticket when `edge_pct >= 6` AND venue is `kalshi`, `polymarket_us`, or `onchain`. Kalshi/Poly also need `ask < 0.80`. Onchain needs `ask < 1.00` and `book_kind=crypto15m`. Many tickets per cycle. Cycle `quiet` only if none pass.
+Ticket when venue is `kalshi`, `polymarket_us`, or `onchain`. Kalshi/Poly: `edge_pct >= 6` and `ask < 0.80`. Onchain `crypto15m`: `edge_pct >= 6` and `ask < 1.00`. Onchain `crypto_scalp`: `edge_pct >= 0.35` and `ask < 1.00`, scores from `scalp.py`. Many tickets per cycle. Cycle `quiet` only if none pass.
 
 ## Improve the bots in Cursor
 
@@ -47,8 +47,9 @@ Edit `grok/scorer.md`, `grok/trader.md`, `grok/CYCLE.md`, or `playbook.md`, then
 
 - Keys, RSA, signed payloads, or ingest tokens in chat or Bot descriptions
 - Live Kraken, Global CLOB
+- Inventing scalp scores; leaving a scalp lot through the high
 - Ask ≥ 0.80 on Kalshi/Poly; filling only one venue when others passed
-- Ask ≥ 0.80, sports before first pitch, `learn` on quiet
+- Sports before first pitch, `learn` on quiet
 - POSTing cycle JSON to Lovable
 - `git pull` on every 5-minute scan
 - POSTing `https://osirisai.live/api/github-webhook` (not a scoring GET)

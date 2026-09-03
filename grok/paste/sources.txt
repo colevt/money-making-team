@@ -1,17 +1,17 @@
-Every scan the Scorer pulls ALL of these. Score EVERY fillable market on Kalshi, Polymarket US, and 1inch. Many tickets per cycle are legal. Git rules update once a day.
+Every scan the Scorer pulls ALL of these. Score EVERY fillable market on Kalshi, Polymarket US, and 1inch. Scalp BUY/SELL from python3 tools/scalp.py --append (buy local low, sell local high, $1 lots). Many tickets per cycle are legal. Git rules update once a day. After settle: python3 tools/learn_from_settle.py so the model learns from itself.
 
 SCORING (required ingest keys, each {ok, lag_s, note}):
-1. unusual_whales — plugin 4021654. 1m/15m OHLC, flow, IBIT+MSTR, map to fillable Kalshi/Poly US. Max lag 600s.
-2. x_news — plugin 4022021. search_news + posts EVERY cycle. ok=true with "no pull yet" is illegal. Max lag 300s.
-3. espn — public game state. Sports after first pitch. crypto15m note "not used crypto15m". Max lag 45s on sports.
-4. crypto — Kraken plugin 4031115 public/paper only (never -s trade) + UW spots. BTC ETH SOL XRP. Also the fair for 1inch. Max lag 180s.
+1. unusual_whales — plugin 4021654. 1m/15m OHLC, flow, IBIT+MSTR, map to fillable Kalshi/Poly US. Pass flow into crypto_tape.py --flow. Max lag 600s.
+2. x_news — plugin 4022021. python3 tools/x_tape.py then search_news + posts then --record EVERY cycle. ok=true with "no pull yet" is illegal. Max lag 300s.
+3. espn — public game state. Sports after first pitch. crypto15m/scalp note "not used crypto15m". Max lag 45s on sports.
+4. crypto — Kraken plugin 4031115 public/paper only (never -s trade) + UW spots + python3 tools/crypto_tape.py (local high/low/VWAP). BTC ETH SOL XRP. Fair for 1inch. Max lag 180s.
 5. kalshi — live book on ALL fillable tickers. Max lag 20s.
 6. polymarket_us — live book on ALL fillable US tickers. Max lag 20s.
-7. osiris — python3 tools/osiris.py (no key). Pulls ALL 27 keyless GET feeds from https://osirisai.live (flights/sats/cctv compacted to counts). Read ledger/osiris_snapshot.json. Use quakes, jamming, fires, infra, cyber, news, markets. Max lag 90s.
-8. onchain — python3 tools/oneinch.py (ONEINCH_API_KEY). USDC→WETH/WBTC/SOL vs Kraken. Ticket venue. Wallet 0xcE01…49BF. POL is gas. Max lag 20s.
+7. osiris — python3 tools/osiris.py (no key). Pulls ALL 27 keyless GET feeds from https://osirisai.live. Read ledger/osiris_snapshot.json. Max lag 90s.
+8. onchain — python3 tools/oneinch.py (ONEINCH_API_KEY). USDC→WETH/WBTC/SOL vs Kraken and vs tape VWAP. Ticket venue. Wallet 0xcE01…49BF. POL is gas. Max lag 20s.
 
-Trader: python3 tools/execute.py --cycle_id … then --live --append. Fills every passing score (Kalshi + Poly + 1inch), not just one.
+Trader: python3 tools/execute.py --cycle_id … then --live --append. Fills every passing score (Kalshi + Poly + 1inch BUY and SELL), not just one.
 
 NOT SOURCES: Global CLOB, Lovable, live Kraken, OSIRIS RECON/scanner/osint-sweep, POST /api/github-webhook.
 
-Hours: US sports → kalshi/poly, book_kind=sports. Crypto 15m + 1inch → book_kind=crypto15m.
+Hours: US sports → kalshi/poly, book_kind=sports. Crypto 15m + 1inch 6% cheap → crypto15m. Every scan buy-low/sell-high → crypto_scalp (0.35% gate).

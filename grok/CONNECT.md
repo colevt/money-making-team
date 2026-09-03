@@ -2,7 +2,7 @@
 
 Cursor is how you make the bots better: edit [scorer.md](scorer.md), [trader.md](trader.md), [CYCLE.md](CYCLE.md), [playbook.md](../playbook.md), push, and the Bots pick it up on the **once-a-day** `python3 tools/daily_update.py`. Bot **descriptions** are short pointers ([paste/scorer.txt](paste/scorer.txt), [paste/trader.txt](paste/trader.txt)). Paste those once.
 
-Two Bots only. Unusual Whales, X, ESPN, Kraken, OSIRIS, and 1inch quotes are **feeds the Scorer pulls**, not extra Bots. Tickets go to Kalshi, Polymarket US, **and** onchain 1inch — as many as clear the gate.
+Two Bots only. Unusual Whales, X, ESPN, Kraken, OSIRIS, and 1inch quotes are **feeds the Scorer pulls**, not extra Bots. Tickets go to Kalshi, Polymarket US, **and** onchain 1inch — 6% mispricing **and** 0.35% buy-low/sell-high scalps, as many as clear the gate.
 
 The cycle lives in this git repo. Events go to `ledger/events.jsonl` via `python3 tools/append_event.py`. **Lovable is display-only** (`site/` later). Do not ask for ingest tokens. Never put venue keys in a Bot profile, chat, or share link.
 
@@ -48,8 +48,8 @@ Save [paste/skill-desk.txt](paste/skill-desk.txt) as the `money-team-desk` skill
 
 First messages:
 
-- Scorer: `read grok/scorer.md and grok/CYCLE.md. Run bash tools/bootstrap.sh if tools/ is missing. Pull all eight feeds (osiris.py + oneinch.py). Emit one score per fillable Kalshi, Polymarket US, and 1inch market. Cycle quiet only if none pass. Do not fill. Do not git pull every scan.`
-- Trader: `read grok/trader.md. Fill EVERY passing score this cycle: python3 tools/execute.py --cycle_id … then --live --append. Kalshi, Polymarket US, and 1inch. Do not stop after one ticket. Do not git pull on a handoff.`
+- Scorer: `read grok/scorer.md and grok/CYCLE.md. Run bash tools/bootstrap.sh if tools/ is missing. Pull all eight feeds (osiris.py + oneinch.py + crypto_tape.py + x_tape.py). python3 tools/scalp.py --cycle_id … --append for buy-low/sell-high. Emit one score per fillable Kalshi, Polymarket US, and 1inch market. Cycle quiet only if none pass. After settle learn_from_settle.py. Do not fill. Do not git pull every scan.`
+- Trader: `read grok/trader.md. Fill EVERY passing score this cycle: python3 tools/execute.py --cycle_id … then --live --append. Kalshi, Polymarket US, and 1inch BUY and SELL. Do not stop after one ticket. Do not leave a scalp lot through the high. Do not git pull on a handoff.`
 
 ## 4. Routines
 
@@ -71,10 +71,11 @@ First messages:
 ```bash
 python3 tools/daily_update.py
 python3 tools/test_ledger_contract.py
+python3 tools/test_scalp.py
 tail -n 20 ledger/events.jsonl
 ```
 
-Quiet: `ingest` (eight feeds, X actually pulled, OSIRIS + 1inch quoted) + scores + cycle `quiet` only if none passed. Fired: Trader `python3 tools/execute.py --cycle_id … --live --append` for **every** passing market. Later `settle` per ticket, then Scorer `python3 tools/learn_from_settle.py --cycle_id … --ticket_id …`.
+Quiet: `ingest` (eight feeds, X actually pulled, OSIRIS + 1inch quoted, crypto tape) + scores + cycle `quiet` only if none passed. Fired: Trader `python3 tools/execute.py --cycle_id … --live --append` for **every** passing market including scalp SELL. Later `settle` per ticket, then Scorer `python3 tools/learn_from_settle.py --cycle_id … --ticket_id …`.
 
 Local app: `python3 tools/serve_desk.py` → http://127.0.0.1:8765. That is the desk. Lovable is a later public copy of `site/`, not a token the bots wait on.
 
