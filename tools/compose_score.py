@@ -20,6 +20,11 @@ from zoneinfo import ZoneInfo
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
+from dexscreener import (  # noqa: E402
+    fee_floor_ok,
+    load_snapshot as load_dex,
+    volume_decay_exit,
+)
 from inventory import MARKETS, get as inv_get, load as inv_load  # noqa: E402
 from ledger_contract import (  # noqa: E402
     DEFAULT_WEIGHTS,
@@ -130,7 +135,14 @@ def feeds_used_for(row: dict, side: str) -> list[str]:
     return out
 
 
-def buy_ok(row: dict, params: dict, held: bool) -> tuple[bool, str]:
+def buy_ok(
+    row: dict,
+    params: dict,
+    held: bool,
+    *,
+    size_usd: float = DEFAULT_USD,
+    dex_row: dict | None = None,
+) -> tuple[bool, str]:
     if held:
         return False, "already long — wait for SELL"
     if not row.get("ok"):
@@ -144,14 +156,34 @@ def buy_ok(row: dict, params: dict, held: bool) -> tuple[bool, str]:
         if float(row["oneinch"]) > float(row["last"]) * 1.004:
             return False, "1inch rich vs Kraken — skip"
     if dip >= min_dip:
+        last = float(row.get("last") or 0)
+        inch = float(row["oneinch"]) if row.get("oneinch") else None
+        ok_fee, fee_why, _ = fee_floor_ok(
+            size_usd,
+            oneinch_px=inch,
+            fair_px=last if last > 0 else None,
+            scalp_gate_pct=SCALP_GATE_PCT,
+        )
+        if not ok_fee:
+            return False, fee_why
         why = f"local low, dip {dip:.2f}% vs VWAP" if at_low else f"dip {dip:.2f}% vs VWAP"
+        if fee_why and "fee floor ok" in fee_why:
+            why = f"{why}; {fee_why}"
+        if dex_row and dex_row.get("ok"):
+            liq = dex_row.get("liquidity_usd")
+            ratio = dex_row.get("volume_ratio")
+            if liq is not None and ratio is not None:
+                why = f"{why} (liq ${liq:,.0f} vol {ratio:.2f})"
         return True, why
     return False, f"dip {dip:.2f}% under {min_dip:g}% (at_low={at_low})"
 
 
-def sell_ok(row: dict, pos: dict, params: dict) -> tuple[bool, str]:
+def sell_ok(row: dict, pos: dict, params: dict, *, dex_row: dict | None = None) -> tuple[bool, str]:
     if not pos:
         return False, "flat"
+    decay, decay_why = volume_decay_exit(dex_row)
+    if decay:
+        return True, decay_why
     if not row.get("ok"):
         return False, row.get("note") or "no tape"
     last = float(row["last"])
@@ -182,8 +214,9 @@ def score_event(
     size_usd: float,
     ts: str | None = None,
     entry_px: float | None = None,
+    dex_features: dict | None = None,
 ) -> dict | None:
-    last = float(row.get("oneinch") or row.get("last") or 0)
+    last = float(row.get("oneinch") or row.get("last") or (dex_features or {}).get("price_usd") or 0)
     if last <= 0:
         return None
     if side == "BUY":
@@ -232,6 +265,10 @@ def score_event(
             "x_sign": row.get("x_sign"),
             "at_low": row.get("at_low"),
             "at_high": row.get("at_high"),
+            "liquidity_usd": (dex_features or {}).get("liquidity_usd"),
+            "volume_ratio": (dex_features or {}).get("volume_ratio"),
+            "volume_decay": (dex_features or {}).get("volume_decay"),
+            "fee_floor": (dex_features or {}).get("fee_floor"),
         },
         **encoded,
     }
@@ -245,12 +282,14 @@ def compose(
     tape: dict | None = None,
     books: dict | None = None,
     inventory: dict | None = None,
+    dex: dict | None = None,
     size_usd: float | None = None,
     ts: str | None = None,
 ) -> dict:
     tape = tape if tape is not None else load_json(Path(os.environ.get("CRYPTO_TAPE_PATH", TAPE_PATH)))
     books = books if books is not None else load_books(WEIGHTS_PATH)
     inventory = inventory if inventory is not None else inv_load()
+    dex = dex if dex is not None else load_dex()
     weights = _weights(books)
     params = scalp_params(books)
     size = float(size_usd if size_usd is not None else DEFAULT_USD)
@@ -258,14 +297,16 @@ def compose(
     skipped = []
     for symbol in MARKETS:
         row = (tape.get("symbols") or {}).get(symbol) or {}
+        dex_row = (dex.get("symbols") or {}).get(symbol) or {}
         pos = inv_get(symbol, inventory)
         if pos:
-            ok, why = sell_ok(row, pos, params)
+            ok, why = sell_ok(row, pos, params, dex_row=dex_row)
             if ok:
                 ev = score_event(
                     cycle_id=cycle_id, symbol=symbol, side="SELL", row=row,
                     weights=weights, reason=why, size_usd=float(pos.get("size_usd") or size),
                     ts=ts, entry_px=pos.get("entry_px"),
+                    dex_features=dex_row,
                 )
                 if ev:
                     scores.append(ev)
@@ -274,13 +315,23 @@ def compose(
             else:
                 skipped.append({"symbol": symbol, "side": "SELL", "note": why})
             continue
-        ok, why = buy_ok(row, params, held=False)
+        ok, why = buy_ok(row, params, held=False, size_usd=size, dex_row=dex_row)
         if not ok:
             skipped.append({"symbol": symbol, "side": "BUY", "note": why})
             continue
+        _, _, fee_floor = fee_floor_ok(
+            size,
+            oneinch_px=float(row["oneinch"]) if row.get("oneinch") else None,
+            fair_px=float(row["last"]) if row.get("last") else None,
+            scalp_gate_pct=SCALP_GATE_PCT,
+        )
+        dex_feat = dict(dex_row) if dex_row else {}
+        if fee_floor.get("ok"):
+            dex_feat["fee_floor"] = fee_floor
         ev = score_event(
             cycle_id=cycle_id, symbol=symbol, side="BUY", row=row,
             weights=weights, reason=why, size_usd=size, ts=ts,
+            dex_features=dex_feat or None,
         )
         if ev and ev.get("gate_pass"):
             scores.append(ev)
@@ -295,6 +346,7 @@ def compose(
         "pm_gate_pct": GATE_PCT,
         "params": params,
         "weights": weights,
+        "dex_ok": bool(dex.get("ok")),
         "n": len(scores),
         "scores": scores,
         "skipped": skipped,

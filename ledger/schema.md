@@ -55,7 +55,7 @@ Kalshi / Polymarket US: `gate_pass` iff `edge_pct >= 6` **and** `ask < 0.80` **a
 
 Onchain `crypto15m`: `gate_pass` iff `edge_pct >= 6` **and** `ask < 1.00` **and** 1inch quoted. `model_cents` is 100 (Kraken/UW fair); `book_cents` is `1inch_price/fair*100`.
 
-Onchain `crypto_scalp`: `gate_pass` iff `edge_pct >= 0.35` **and** `ask < 1.00`. Scores come from `python3 tools/scalp.py` (tape VWAP / local high-low + learned weights). BUY the dip; SELL the same lot at take/high/stop.
+Onchain `crypto_scalp`: `gate_pass` iff `edge_pct >= 0.35` **and** `ask < 1.00`. Scores come from `python3 tools/scalp.py` (tape VWAP / local high-low + learned weights). BUY the dip; SELL the same lot at take/high/stop **or liquidity decay** (DexScreener `volume.h6 / (volume.h24/4) < 0.20`). BUY blocked when round-trip fee floor (Polygon gas × 2 + 1inch spread at `TICKET_USD`) implies break-even move > 0.35%. DexScreener snapshot: `ledger/dexscreener_snapshot.json`.
 
 `edge_pct` must equal `model_cents - book_cents` (±0.25). `ask` must match `book_cents/100`. Many passing scores per `cycle_id` are legal. A ticket must match one of them by `venue` + `market_id` (+ `side` when the score has a side).
 

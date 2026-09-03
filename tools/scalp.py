@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from compose_score import compose  # noqa: E402
 from crypto_tape import update as update_tape  # noqa: E402
+from dexscreener import update as update_dex  # noqa: E402
 
 
 def main() -> None:
@@ -40,6 +41,11 @@ def main() -> None:
     if not args.skip_fetch:
         tape = update_tape(flow=flow)
         print(f"tape  {tape.get('note')}", file=sys.stderr)
+        try:
+            dex = update_dex()
+            print(f"dex   {dex.get('ingest', {}).get('note')}", file=sys.stderr)
+        except Exception as err:
+            print(f"dex   GAP dexscreener unavailable — {err}", file=sys.stderr)
     out = compose(args.cycle_id)
     if args.append:
         from append_event import append  # noqa: E402

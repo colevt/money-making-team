@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +18,7 @@ from zoneinfo import ZoneInfo
 from .common import env, http_json, load_env, qs
 
 ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
 OUT = ROOT / "ledger" / "oneinch_snapshot.json"
 CHAIN = 137
 BASE = os.environ.get("ONEINCH_URL", "https://api.1inch.com/swap/v6.1/137").rstrip("/")
@@ -132,14 +134,32 @@ def pull_quotes(fairs: dict | None = None) -> dict:
             notes.append(f"{name} 1inch {px:.4g} vs {fair:g} edge {scored['edge_pct']:+.1f}")
         elif px:
             notes.append(f"{name} 1inch {px:.4g}")
+    try:
+        from dexscreener import liquidity_note_for_ingest, load_snapshot, update as dex_update  # noqa: E402
+
+        dex = load_snapshot()
+        if not dex.get("ok"):
+            try:
+                dex = dex_update()
+            except SystemExit:
+                pass
+        liq_note = liquidity_note_for_ingest(dex)
+        if liq_note and liq_note != "dexscreener unavailable":
+            notes.append(liq_note)
+    except Exception as err:
+        notes.append(f"dex {str(err)[:40]}")
+    note = " · ".join(notes) if notes else ("no ONEINCH_API_KEY" if not has_key() else "no quote")
     ingest = {
         "ok": any_ok if has_key() else False,
         "lag_s": 0,
-        "note": " · ".join(notes) if notes else ("no ONEINCH_API_KEY" if not has_key() else "no quote"),
+        "note": note,
     }
     if not has_key():
         ingest["ok"] = False
-        ingest["note"] = "no ONEINCH_API_KEY"
+        if note != "no ONEINCH_API_KEY":
+            ingest["note"] = f"no ONEINCH_API_KEY · {note}"
+        else:
+            ingest["note"] = "no ONEINCH_API_KEY"
     snap = {
         "ts": now_iso(),
         "wallet": WALLET,
