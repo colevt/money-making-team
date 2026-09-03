@@ -1,68 +1,48 @@
 # Worlds #1 Money Team playbook
 
-Source of truth for the two Grok bots (Scorer + Trader). Unusual Whales, X, ESPN, Kraken, and OSIRIS are scoring **feeds**, not extra Bots. Use **all** of them every scan. The desk exists to show **why** a cycle was Quiet vs traded, then retune from settled P/L. Caps are not optional. [grok/CYCLE.md](grok/CYCLE.md) is the step list; [grok/SOURCES.md](grok/SOURCES.md) is the full pull list; [ledger/schema.md](ledger/schema.md) is what `append_event.py` will reject.
+Source of truth for the two Grok bots (Scorer + Trader). Unusual Whales, X, ESPN, Kraken, OSIRIS, and 1inch quotes are scoring **feeds**. Kalshi, Polymarket US, and onchain 1inch are **ticket venues**. Use **all** of them every scan. Fire **every** market×venue that clears the gate — do not stop at one ticket. Caps are not optional. [grok/CYCLE.md](grok/CYCLE.md) · [grok/SOURCES.md](grok/SOURCES.md) · [ledger/schema.md](ledger/schema.md).
 
 ## Venues
 
-Execution wallets on the desk:
+- **Kalshi** — signed fills (sports + crypto 15m).
+- **Polymarket US** — signed fills.
+- **Onchain** — Polygon 1inch classic swap v6.1 (`python3 tools/oneinch.py`, live via `tools/execute.py --live`). Native USDC from `0xcE01…49BF`. POL is gas. Crypto15m only.
 
-- **Kalshi** — signed fills (sports + crypto 15m). Ticket venue.
-- **Polymarket US** — signed fills. Ticket venue.
-- **Onchain** — Polygon DEX native USDC **cash** wallet. POL is gas, not spendable. Not a ticket `venue`. Do not mix this balance into Kalshi or Poly runway.
+Scoring only (never a fill venue): Unusual Whales, X, ESPN, Kraken, OSIRIS. Never `-s trade`. Never Global CLOB. Never POST github-webhook.
 
-Scoring only (never a fill venue):
+## Gate (per market × venue)
 
-- Unusual Whales, X, ESPN, Kraken, and OSIRIS (`python3 tools/osiris.py` GETs).
-- Never place a live Kraken order. Never enable `-s trade`. Never withdraw.
-- Global CLOB is not a venue. 403 geo is expected. No order path through it.
-- Do not POST `https://osirisai.live/api/github-webhook`. That forwards signed GitHub events; empty `{}` is not a book.
+A ticket is allowed only when that market’s score has:
 
-## Gate (must all pass)
+1. `model_cents` present and `edge_pct` = `model_cents - book_cents` **≥ 6%**
+2. Kalshi / Poly: live **ask < 0.80**. Onchain: **ask < 1.00** (1inch/fair; do not pay above Kraken/UW).
+3. Venue is `kalshi`, `polymarket_us`, or `onchain` (fillable ticker / 1inch pair).
+4. Sports: game **has started**; `book_kind=sports`; not onchain.
+5. Crypto 15m / 1inch: `book_kind=crypto15m`.
+6. Ingest is fresh **for that venue**. A dead Poly book does not block Kalshi. A missing 1inch key does not block Kalshi/Poly. X actually pulled. OSIRIS actually pulled.
 
-A ticket is allowed only when:
-
-1. `model_cents` is present and `edge_pct` equals `model_cents - book_cents` and is **≥ 6%**
-2. Live **ask < 0.80** (do not buy because UW looks bullish)
-3. Book is Kalshi or Polymarket US (fillable ticker, not a CLOB ghost)
-4. Sports: game **has started**; X/ESPN are lag detectors, not standalone buys. Use `book_kind=sports`.
-5. Crypto 15m: UW+Kraken+OSIRIS `/api/crypto` vs the Kalshi 15m book. Use `book_kind=crypto15m`. Do not apply ESPN sports weights.
-6. Ingest is fresh (kill switches below). X actually pulled. OSIRIS actually pulled.
-
-Otherwise emit `quiet` and stand down. Quiet is a first-class outcome. The append tool refuses `gate_pass: true` when ingest is missing or stale.
+Otherwise per-market `quiet`, or cycle `quiet` if **none** passed. The append tool refuses a ticket that does not match a passing score for that venue + `market_id`.
 
 ## Size and risk
 
-- Dollar-at-risk stays inside side + size caps on the trading bot.
-- Runway = spendable / avg stake. If runway is thin, skip marginal edges.
-- Never paste keys, RSA material, or signed payloads into chat or the ledger.
+- Dollar-at-risk stays inside `TICKET_USD` / `MAX_TOTAL_USD` / `MAX_TICKETS_PER_CYCLE` (defaults $1 / $40 / 12).
+- Three runways: Kalshi cash, Poly cash, onchain USDC. Do not mix.
+- Never paste keys into chat or the ledger. `--live` reads `.env`.
 
 ## Hours
 
-- US hours: flow, IBIT/MSTR, live US sports books (`sports`).
-- Overnight: crypto OHLC vs **KXBTC15M** (`crypto15m`). Daytime Kalshi 15m crypto uses the same book, not ESPN weights.
+- US hours: live sports on Kalshi/Poly (`sports`). Still quote 1inch; idle note is fine.
+- Overnight + Kalshi 15m crypto: books **and** 1inch (`crypto15m`).
 
-## Flatten-watch
+## Flatten-watch / learning
 
-After fill the trader stays on the ticket: emit `mark` on each check. If an exit trigger fires, emit `flatten` with `trigger`. Market resolve → `settle`. Do not skip `post` or `mark`.
+After fill the trader `mark`s **each** open ticket. Settle per ticket. Scorer: `python3 tools/learn_from_settle.py --cycle_id … --ticket_id …`. Quiet with no settle does not learn. Gate stays **6%**.
 
-## Learning
+## Kill switches → skip that market (not the whole desk)
 
-- Two books in [ledger/weights.json](ledger/weights.json): `sports` and `crypto15m`.
-- Only `settle` retunes, and only by running `python3 tools/learn_from_settle.py --cycle_id …` (±0.02 on `feeds_used`, renormalize).
-- ESPN weight is frozen on crypto15m. Crypto weight is frozen on sports.
-- Quiet cycles do not change weights.
-- Gate stays **6%** until 60 settled tickets on that book. Do not hand-edit the gate.
-
-## Kill switches → Quiet
-
-- Any scoring feed stale (UW>10m, X>5m or no pull, ESPN sports>45s, Kraken>3m, books>20s, OSIRIS>90s)
-- OSIRIS incomplete (`python3 tools/osiris.py` failed core routes)
-- Ingest/desk heartbeat down (no heartbeat in 5 minutes)
-- Market is Global-CLOB-only
-- Ask ≥ 0.80
+- That venue’s book stale, or core feeds stale (UW>10m, X>5m or no pull, ESPN sports>45s, Kraken>3m on crypto15m, OSIRIS>90s)
+- OSIRIS incomplete
+- Kalshi/Poly ask ≥ 0.80; onchain ask ≥ 1.00
 - Game not started (sports)
 - `model_cents` missing
-
-## After every cycle
-
-Append with [tools/append_event.py](tools/append_event.py) using [ledger/schema.md](ledger/schema.md). That is how the desk stays connected to this team. Lovable is a public view of `site/` later, not part of the cycle.
+- Global-CLOB-only name

@@ -12,10 +12,19 @@ Every cycle pull **all** scoring data. Do not skip a source because another one 
 2. X plugin `4022021` — `search_news` + recent posts every cycle. Never `ok=true` with "no pull yet".
 3. ESPN public — live score/clock/started. After first pitch/tip/kick for sports. On crypto15m still pull, note `not used crypto15m`.
 4. Kraken plugin `4031115` — public ticker/OHLC/paper for BTC ETH SOL XRP. Never `-s trade`, never withdraw.
-5. Kalshi live book — bid/ask/mark/depth, fillable tickers.
-6. Polymarket US live book — bid/ask/mark/depth, fillable US tickers.
-7. **OSIRIS** — `python3 tools/osiris.py` (https://osirisai.live/docs#quickstart, no key). Pulls `/api/stats` `/api/markets` `/api/crypto` `/api/news` `/api/country-risk` `/api/conflicts` `/api/gdelt` `/api/space-weather` `/api/cyber-threats` `/api/weather`. Use crypto+markets as a cross-check vs Kraken/UW. Use news/risk/conflicts as lag next to X. If `max_risk >= 7` on a headline tied to the market, quiet unless the book already moved. Incomplete OSIRIS → `osiris.ok=false` → quiet. Do not POST `/api/github-webhook`.
+5. Kalshi live book — bid/ask/mark/depth on **every** fillable ticker this window, not one favorite.
+6. Polymarket US live book — bid/ask/mark/depth on **every** fillable US ticker.
+7. **OSIRIS** — `python3 tools/osiris.py`. Crypto+markets vs Kraken/UW. News/risk next to X. `max_risk >= 7` tied to a market → skip that market unless the book already moved. Do not POST `/api/github-webhook`.
+8. **1inch onchain** — `python3 tools/oneinch.py`. Polygon USDC → WETH/WBTC/SOL quotes vs Kraken/UW. This is a ticket venue, not cash-on-the-sidelines. Sports: still pull, note `idle US hours sports`.
 
-From this repo run `python3 tools/append_event.py`. Emit `ingest` with **seven** feeds `unusual_whales`, `x_news`, `espn`, `crypto`, `kalshi`, `polymarket_us`, `osiris` each `{ok, lag_s, note}`; then `score` with `model_cents`, `book_cents`, `edge_pct` (= model_cents - book_cents), `ask`, `bid`, `book_kind` sports|crypto15m, `feeds_used`, `venue` kalshi|polymarket_us, `market_id`, `market`, `reason`, `gate_pass`. When OSIRIS intel moved the model, include `x` in `feeds_used`. `gate_pass` is true only if edge_pct>=6 AND ask<0.80 AND fillable Kalshi/Poly US AND ingest is fresh including OSIRIS. Else emit `quiet`. Heartbeat every 5 minutes: `python3 tools/heartbeat.py --bot scorer`. Stale (UW>600s, X>300s or no pull, ESPN sports>45s, crypto>180s, books>20s, OSIRIS>90s) → quiet. After settle only: `python3 tools/learn_from_settle.py --cycle_id …`.
+Emit **one `ingest`** with **eight** feeds (`unusual_whales`, `x_news`, `espn`, `crypto`, `kalshi`, `polymarket_us`, `osiris`, `onchain`). Then emit **one `score` per fillable market×venue** that you looked at. Do not pick a single winner. If Kalshi XRP, Polymarket US twin, and 1inch WETH all clear the gate, emit three passing scores this `cycle_id`. Cycle-level `quiet` (no `market_id`) only if **zero** scores passed. Per-market `quiet` may include `market_id` + `venue`.
 
-US hours: flow, IBIT/MSTR, live sports (`book_kind=sports`). Overnight and Kalshi 15m crypto: OHLC vs KXBTC15M / KXETH15M / KXXRP15M (`book_kind=crypto15m`), OSIRIS `/api/crypto` vs Kraken/UW. Hand off to the trader only when `gate_pass` is true.
+Each `score` needs `model_cents`, `book_cents`, `edge_pct` (= model−book), `ask`, `bid`, `book_kind` sports|crypto15m, `feeds_used`, `venue` kalshi|polymarket_us|onchain, `market_id`, `market`, `reason`, `gate_pass`.
+
+Gate:
+
+- Kalshi / Polymarket US: `edge_pct>=6` AND `ask<0.80` AND started sports (if sports) AND that venue’s book is fresh.
+- Onchain (crypto15m only): `model_cents=100`, `book_cents=1inch_price/fair*100`, `ask=book/100`, `edge_pct>=6` AND `ask<1.00` (do not pay above Kraken/UW). Side will be `BUY` on the ticket.
+- A dead Polymarket book does **not** block a Kalshi ticket. A dead 1inch key does **not** block Kalshi/Poly. The venue you are scoring must be fresh.
+
+Heartbeat: `python3 tools/heartbeat.py --bot scorer`. After each settle: `python3 tools/learn_from_settle.py --cycle_id … --ticket_id …`.

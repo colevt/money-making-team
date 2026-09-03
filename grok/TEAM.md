@@ -4,27 +4,13 @@ Living jobs: [scorer.md](scorer.md), [trader.md](trader.md). One-time profile pa
 
 | Bot | `bot` field | Tools | Job |
 | --- | --- | --- | --- |
-| Scorer | `scorer` | Unusual Whales `4021654`, X `4022021`, Kraken `4031115`, ESPN, OSIRIS `python3 tools/osiris.py`, live books | Pull **every** feed, write `ingest` + `score` (`model_cents` required). Gate fail → `quiet`. After settle run `learn_from_settle.py`. Does not fill. |
-| Trader | `trader` | Kalshi + Polymarket US signed post | Only if this cycle already `gate_pass`. `ticket → post → fill → mark → flatten or settle`. Does not score. Does not learn. |
-
-Scoring feeds (Scorer pulls these; do not create extra Bots): Unusual Whales, X, ESPN, Kraken public/paper, OSIRIS. Never live Kraken, never `-s trade`.
+| Scorer | `scorer` | UW `4021654`, X `4022021`, Kraken `4031115`, ESPN, OSIRIS, 1inch `python3 tools/oneinch.py`, live books | Pull every feed. One `score` per fillable Kalshi, Polymarket US, **and** 1inch market. Cycle quiet only if none pass. After settle: `learn_from_settle.py --ticket_id`. Does not fill. |
+| Trader | `trader` | `python3 tools/execute.py` → Kalshi + Polymarket US + Polygon 1inch | Fill **every** passing score this cycle. `--live --append` when `.env` keys exist. Does not score. Does not learn. |
 
 ## Cycle
 
 See [CYCLE.md](CYCLE.md). Short form:
 
-Scorer ingest (seven feeds including OSIRIS) → Scorer score with **model_cents** → **6% and ask < 0.80** or Quiet → Trader ticket → post → fill → flatten-watch → settle → Scorer `python3 tools/learn_from_settle.py`.
-
-Quiet still emits `ingest` + `score` + `quiet`. No `learn` on quiet. Two weight books in [ledger/weights.json](../ledger/weights.json). ESPN does not train on crypto 15m.
+Scorer ingest (eight feeds) → one score per market×venue → **6%** (Kalshi/Poly ask < 0.80, onchain ask < 1.00) → Trader execute all → mark → settle per ticket → Scorer learn per ticket.
 
 Heartbeat: `python3 tools/heartbeat.py` (scorer + trader).
-
-## Ledger
-
-```bash
-python3 tools/append_event.py '{"ts":"ISO","cycle_id":"…","kind":"score","bot":"scorer",...}'
-```
-
-A score without `model_cents` is rejected. If a local tool is blocked, write the JSON with `python3 tools/append_event.py` on this computer. Do not POST to Lovable. Do not ask for ingest tokens.
-
-Standing rules: [playbook.md](../playbook.md) · [ledger/schema.md](../ledger/schema.md) · paste: [paste/scorer.txt](paste/scorer.txt), [paste/trader.txt](paste/trader.txt)

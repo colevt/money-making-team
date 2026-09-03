@@ -8,7 +8,7 @@ Paste once:
 - Trader profile → [paste/trader.txt](paste/trader.txt)
 - Skill (both) → [paste/skill-desk.txt](paste/skill-desk.txt)
 
-Unusual Whales, X, ESPN, and Kraken are feeds on the Scorer, not more Bots. OSIRIS is `python3 tools/osiris.py`. Lovable is display-only.
+Unusual Whales, X, ESPN, and Kraken are feeds on the Scorer, not more Bots. OSIRIS is `python3 tools/osiris.py`. 1inch is `python3 tools/oneinch.py`. Lovable is display-only.
 
 ## Scorer (`bot`: scorer)
 
@@ -16,4 +16,4 @@ Plugins: Unusual Whales `4021654`, X `4022021`, Kraken `4031115`. ESPN is a publ
 
 ## Trader (`bot`: trader)
 
-Kalshi / Polymarket US signed post only. Onchain is cash, not a venue. Full job: [trader.md](trader.md). No fill unless this `cycle_id` has `score.gate_pass=true`.
+Kalshi / Polymarket US / Polygon 1inch via `python3 tools/execute.py`. Fill every passing score this cycle. Full job: [trader.md](trader.md).

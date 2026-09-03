@@ -12,7 +12,7 @@ Open http://127.0.0.1:8765. That page polls live `/api/desk`, shows Kalshi / Pol
 
 ## Connect the two Grok bots
 
-**Scorer** pulls UW, X, ESPN, Kraken, OSIRIS, and the books — use all of them. **Trader** posts Kalshi / Polymarket US only after a passing score. Do not add more Bots.
+**Scorer** pulls UW, X, ESPN, Kraken, OSIRIS, 1inch, and the books — score every fillable market. **Trader** posts Kalshi, Polymarket US, **and** Polygon 1inch for every passing score this cycle. Do not add more Bots.
 
 Clone (public GitHub, no token):
 
@@ -39,9 +39,9 @@ Roster: [grok/TEAM.md](grok/TEAM.md), [grok/INSTRUCTIONS.md](grok/INSTRUCTIONS.m
 
 ## What the two bots are allowed to do
 
-- Scorer: Unusual Whales, X, ESPN, Kraken public data / paper. Never fills.
-- Trader: signed Kalshi and Polymarket US only. Onchain USDC is cash, not a ticket venue.
-- Never: live Kraken, withdraw, Global CLOB, ask ≥ 0.80, keys in chat, a ticket without `model_cents`.
+- Scorer: Unusual Whales, X, ESPN, Kraken public data / paper, OSIRIS, 1inch quotes. Never fills.
+- Trader: `python3 tools/execute.py` on Kalshi, Polymarket US, and Polygon 1inch. Fill every passing score, not just one.
+- Never: live Kraken, withdraw, Global CLOB, keys in chat, a ticket without `model_cents`.
 
 ## Desk sample session
 

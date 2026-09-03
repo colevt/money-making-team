@@ -18,10 +18,10 @@ A fired ticket is illegal unless this cycle already has a fresh `ingest` and a `
 
 | kind | Who | Extra fields |
 | --- | --- | --- |
-| `ingest` | scorer | `feeds`: **all seven** keys below. Each `{ ok, lag_s, note }`. `x_news.ok` cannot be true with note `no pull`. `osiris.ok` cannot be true if incomplete. |
-| `score` | scorer | `edge_pct`, `ask`, `bid`, `model_cents`, `book_cents`, `weights`, `gate_pass`, `venue`, `market_id`, `market`, `book_kind` `sports`\|`crypto15m`, `feeds_used` (`uw`\|`x`\|`espn`\|`crypto`\|`book`), `reason` |
-| `quiet` | scorer | `reason` (why the 6% / ask / venue / stale / kill switch failed) |
-| `ticket` | trader | `venue` `kalshi` \| `polymarket_us`, `side`, `size_usd`, `entry_cents`, `market_id`, `market`. Refused if this cycle is quiet or `gate_pass` is not true. |
+| `ingest` | scorer | `feeds`: **all eight** keys below. Each `{ ok, lag_s, note }`. `x_news.ok` cannot be true with note `no pull`. `osiris.ok` cannot be true if incomplete. `onchain.ok` cannot be true if no quote. |
+| `score` | scorer | One per market×venue. `edge_pct`, `ask`, `bid`, `model_cents`, `book_cents`, `weights`, `gate_pass`, `venue` `kalshi`\|`polymarket_us`\|`onchain`, `market_id`, `market`, `book_kind` `sports`\|`crypto15m`, `feeds_used`, `reason` |
+| `quiet` | scorer | `reason`. Omit `market_id` for a cycle stand-down (blocks all tickets). Include `market_id` (+ `venue`) to skip one name only. |
+| `ticket` | trader | `venue` `kalshi` \| `polymarket_us` \| `onchain`, `side` YES\|NO or BUY\|SELL, `size_usd`, `entry_cents`, `market_id`, `market`. Must match a passing score for that venue+market. Many tickets per cycle are legal. |
 | `post` | trader | `venue`, `market_id`, `confirmed_live` **true**, `under_cap` **true** |
 | `fill` | trader | same as ticket plus `ticket_id`. Requires `post` in this cycle. |
 | `mark` | trader | `ticket_id`, `mark_cents`, `unrealized_usd` |
@@ -33,7 +33,7 @@ A fired ticket is illegal unless this cycle already has a fresh `ingest` and a `
 
 ## Ingest feeds (required every cycle)
 
-`unusual_whales`, `x_news`, `espn`, `crypto`, `kalshi`, `polymarket_us`, `osiris`.
+`unusual_whales`, `x_news`, `espn`, `crypto`, `kalshi`, `polymarket_us`, `osiris`, `onchain`.
 
 Stale → `quiet`, never a ticket:
 
@@ -45,16 +45,17 @@ Stale → `quiet`, never a ticket:
 | crypto | 180 |
 | kalshi / polymarket_us | 20 |
 | osiris | 90 |
+| onchain (1inch) | 20 |
 
-ESPN may be `ok` with note `not used crypto15m` on crypto books. Crypto may sit idle on sports. X must actually pull; `no pull yet` with `ok: true` is rejected. OSIRIS must actually pull (`python3 tools/osiris.py`); incomplete with `ok: true` is rejected.
+ESPN may be `ok` with note `not used crypto15m` on crypto books. Crypto may sit idle on sports. X must actually pull; `no pull yet` with `ok: true` is rejected. OSIRIS must actually pull (`python3 tools/osiris.py`). Onchain must quote (`python3 tools/oneinch.py`) when the ticket venue is `onchain`; a missing 1inch key does not block Kalshi/Poly.
 
 ## Gate rule encoded
 
-`gate_pass` is true **iff** `edge_pct >= 6` **and** `ask < 0.80` **and** venue is `kalshi` or `polymarket_us` **and** this cycle’s ingest is fresh (including OSIRIS).
+Kalshi / Polymarket US: `gate_pass` iff `edge_pct >= 6` **and** `ask < 0.80` **and** that venue’s book is fresh.
 
-`edge_pct` must equal `model_cents - book_cents` (±0.25). `ask` must match `book_cents/100`. `model_cents` is required — a null model is not a score.
+Onchain: `gate_pass` iff `edge_pct >= 6` **and** `ask < 1.00` **and** `book_kind=crypto15m` **and** 1inch quoted. `model_cents` is 100 (Kraken/UW fair); `book_cents` is `1inch_price/fair*100`.
 
-Onchain USDC is cash on the desk, not a ticket `venue`.
+`edge_pct` must equal `model_cents - book_cents` (±0.25). `ask` must match `book_cents/100`. Many passing scores per `cycle_id` are legal. A ticket must match one of them by `venue` + `market_id`.
 
 ## Two weight books
 

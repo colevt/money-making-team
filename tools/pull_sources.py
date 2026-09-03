@@ -207,7 +207,7 @@ def checklist(snap: dict) -> list[dict]:
         {"key": "polymarket_us", "pulled_here": False, "need": "live Polymarket US book", "desk": _desk_line(desk, "Polymarket", None)},
         {"key": "osiris", "pulled_here": bool((snap.get("osiris") or {}).get("ok")), "need": "GET https://osirisai.live/api/{stats,markets,crypto,news,...}"},
         {"key": "live_desk", "pulled_here": bool(desk.get("ok")), "need": "GET /api/desk"},
-        {"key": "onchain", "pulled_here": bool((snap.get("onchain") or {}).get("ok")), "need": "Polygon USDC"},
+        {"key": "onchain", "pulled_here": bool((snap.get("onchain") or {}).get("ok")), "need": "Polygon USDC + 1inch quotes (python3 tools/oneinch.py)"},
     ]
     return rows
 
@@ -239,6 +239,25 @@ def main() -> None:
         snap["onchain"] = pull_onchain()
     except Exception as err:
         snap["onchain"] = fail_row(err)
+    try:
+        from venues.oneinch import pull_quotes  # noqa: E402
+        fairs = {}
+        spots = (snap.get("crypto") or {}).get("spots") or {}
+        for k in ("BTC", "ETH", "SOL"):
+            if spots.get(k):
+                fairs[k] = spots[k]
+        inch = pull_quotes(fairs)
+        row = snap.get("onchain") or {}
+        row["oneinch"] = inch.get("ingest")
+        row["quotes"] = inch.get("quotes")
+        if inch.get("ok"):
+            row["ok"] = True
+            row["note"] = (row.get("note") or "") + " · " + ((inch.get("ingest") or {}).get("note") or "1inch")
+        snap["onchain"] = row
+    except Exception as err:
+        row = snap.get("onchain") or {}
+        row["oneinch"] = fail_row(err)
+        snap["onchain"] = row
     try:
         from osiris import pull as pull_osiris  # noqa: E402
         osi = pull_osiris()

@@ -23,6 +23,9 @@ from ledger_contract import (  # noqa: E402
     apply_learn,
     last_of,
     load_events,
+    of_kind,
+    passing_score_for,
+    cycle_quiet,
 )
 
 WEIGHTS_PATH = ROOT / "ledger" / "weights.json"
@@ -47,6 +50,7 @@ def main() -> None:
     load_env(ROOT / ".env")
     parser = argparse.ArgumentParser(description="Retune weights from a settled cycle")
     parser.add_argument("--cycle_id", required=True)
+    parser.add_argument("--ticket_id", default=None, help="which settle if this cycle filled more than once")
     parser.add_argument("--ledger", default=None)
     parser.add_argument("--weights", default=str(WEIGHTS_PATH))
     parser.add_argument("--dry-run", action="store_true")
@@ -56,16 +60,33 @@ def main() -> None:
 
     ledger = Path(os.environ.get("LEDGER_PATH", ROOT / "ledger" / "events.jsonl"))
     events = load_events(ledger)
-    quiet = last_of(events, args.cycle_id, "quiet")
-    settle = last_of(events, args.cycle_id, "settle")
-    score = last_of(events, args.cycle_id, "score")
-    if quiet is not None and settle is None:
+    if cycle_quiet(events, args.cycle_id) is not None and not of_kind(events, args.cycle_id, "settle"):
         raise SystemExit("quiet cycle — weights unchanged, no learn")
+    settles = of_kind(events, args.cycle_id, "settle")
+    learned = {e.get("ticket_id") for e in of_kind(events, args.cycle_id, "learn") if e.get("ticket_id")}
+    settle = None
+    if args.ticket_id:
+        settle = next((s for s in settles if s.get("ticket_id") == args.ticket_id), None)
+    else:
+        for s in reversed(settles):
+            if s.get("ticket_id") not in learned:
+                settle = s
+                break
+        if settle is None:
+            settle = last_of(events, args.cycle_id, "settle")
     if settle is None:
         raise SystemExit(f"no settle for {args.cycle_id}")
+    fills = of_kind(events, args.cycle_id, "fill")
+    fill = next((f for f in fills if f.get("ticket_id") == settle.get("ticket_id")), None)
+    if fill:
+        score = passing_score_for(events, args.cycle_id, fill.get("venue"), fill.get("market_id"))
+    else:
+        score = last_of(events, args.cycle_id, "score")
     if score is None:
         raise SystemExit(f"no score for {args.cycle_id}")
-    if last_of(events, args.cycle_id, "learn"):
+    if settle.get("ticket_id") and settle.get("ticket_id") in learned:
+        raise SystemExit(f"learn already recorded for ticket {settle.get('ticket_id')}")
+    if not args.ticket_id and last_of(events, args.cycle_id, "learn") and not learned:
         raise SystemExit(f"learn already recorded for {args.cycle_id}")
 
     book_kind = score.get("book_kind")
@@ -93,6 +114,9 @@ def main() -> None:
         "gate_notes": notes,
         "result": settle["result"],
         "feeds_used": used,
+        "ticket_id": settle.get("ticket_id"),
+        "venue": (fill or score).get("venue"),
+        "market_id": (fill or score).get("market_id"),
     }
     if args.dry_run:
         print(json.dumps(event, indent=2))

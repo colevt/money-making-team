@@ -28,6 +28,7 @@ def base_ingest(**lags):
         "kalshi": {"ok": True, "lag_s": 1, "note": "KXXRP15M YES 72¢"},
         "polymarket_us": {"ok": True, "lag_s": 1, "note": "no twin"},
         "osiris": {"ok": True, "lag_s": 8, "note": "BTC 77300 · VIX 15.2 · news risk 3"},
+        "onchain": {"ok": True, "lag_s": 8, "note": "WETH 2389 vs 2389 edge +0.0"},
     }
     for k, v in lags.items():
         feeds[k]["lag_s"] = v
@@ -110,6 +111,101 @@ def test_stale_uw_blocks_gate(tmp: Path):
 def test_fresh_ingest_allows_gate(tmp: Path):
     write_ledger(tmp, [base_ingest()])
     validate(base_score(), tmp)
+
+
+def test_onchain_gate_uses_fair_cap(tmp: Path):
+    write_ledger(tmp, [base_ingest()])
+    validate(base_score(
+        venue="onchain",
+        market_id="USDC-WETH",
+        market="ETH 1inch",
+        book_kind="crypto15m",
+        model_cents=100.0,
+        book_cents=93.0,
+        edge_pct=7.0,
+        ask=0.93,
+        bid=0.93,
+        side="BUY",
+        reason="1inch WETH 7% cheap vs Kraken",
+        feeds_used=["crypto", "book"],
+    ), tmp)
+    expect_fail(base_score(
+        venue="onchain",
+        market_id="USDC-WETH",
+        market="ETH 1inch",
+        book_kind="sports",
+        model_cents=100.0,
+        book_cents=93.0,
+        edge_pct=7.0,
+        ask=0.93,
+        bid=0.93,
+        gate_pass=True,
+        reason="bad book",
+    ), tmp, "crypto15m")
+
+
+def test_dead_poly_does_not_block_kalshi(tmp: Path):
+    ing = base_ingest()
+    ing["feeds"]["polymarket_us"] = {"ok": False, "lag_s": 1, "note": "403"}
+    write_ledger(tmp, [ing])
+    validate(base_score(), tmp)
+
+
+def test_two_tickets_same_cycle(tmp: Path):
+    kalshi = base_score()
+    onchain = base_score(
+        venue="onchain",
+        market_id="USDC-WETH",
+        market="ETH 1inch",
+        model_cents=100.0,
+        book_cents=93.0,
+        edge_pct=7.0,
+        ask=0.93,
+        bid=0.93,
+        reason="1inch WETH cheap vs Kraken",
+        feeds_used=["crypto", "book"],
+    )
+    write_ledger(tmp, [base_ingest(), kalshi, onchain])
+    t1 = {
+        "ts": TS, "cycle_id": CID, "kind": "ticket", "bot": "trader",
+        "venue": "kalshi", "side": "YES", "size_usd": 0.72, "entry_cents": 72,
+        "market_id": "KXXRP15M-26SEP021700-00", "market": "XRP 15m",
+    }
+    t2 = {
+        "ts": TS, "cycle_id": CID, "kind": "ticket", "bot": "trader",
+        "venue": "onchain", "side": "BUY", "size_usd": 1.0, "entry_cents": 93,
+        "market_id": "USDC-WETH", "market": "ETH 1inch",
+    }
+    validate(t1, tmp)
+    validate(t2, tmp)
+    with tmp.open("a") as f:
+        f.write(json.dumps(t1) + "\n" + json.dumps(t2) + "\n")
+    p1 = {
+        "ts": TS, "cycle_id": CID, "kind": "post", "bot": "trader",
+        "venue": "kalshi", "market_id": "KXXRP15M-26SEP021700-00",
+        "confirmed_live": True, "under_cap": True,
+    }
+    p2 = {
+        "ts": TS, "cycle_id": CID, "kind": "post", "bot": "trader",
+        "venue": "onchain", "market_id": "USDC-WETH",
+        "confirmed_live": True, "under_cap": True,
+    }
+    validate(p1, tmp)
+    validate(p2, tmp)
+
+
+def test_cycle_quiet_blocks_all_tickets(tmp: Path):
+    write_ledger(tmp, [
+        base_ingest(),
+        base_score(),
+        {"ts": TS, "cycle_id": CID, "kind": "quiet", "bot": "scorer", "reason": "nothing passed"},
+    ])
+    ticket = {
+        "ts": TS, "cycle_id": CID, "kind": "ticket", "bot": "trader",
+        "venue": "kalshi", "side": "YES", "size_usd": 0.72, "entry_cents": 72,
+        "market_id": "KXXRP15M-26SEP021700-00", "market": "XRP 15m",
+    }
+    expect_fail(ticket, tmp, "cycle quiet")
 
 
 def test_osiris_stale_or_incomplete_blocks_gate(tmp: Path):
@@ -239,6 +335,10 @@ def main() -> None:
         test_gate_pass_needs_ingest(p / "a.jsonl")
         test_stale_uw_blocks_gate(p / "b.jsonl")
         test_fresh_ingest_allows_gate(p / "c.jsonl")
+        test_onchain_gate_uses_fair_cap(p / "c3.jsonl")
+        test_dead_poly_does_not_block_kalshi(p / "c4.jsonl")
+        test_two_tickets_same_cycle(p / "c5.jsonl")
+        test_cycle_quiet_blocks_all_tickets(p / "c6.jsonl")
         test_osiris_stale_or_incomplete_blocks_gate(p / "c2.jsonl")
         test_ticket_blocked_without_passing_score(p / "d.jsonl")
         test_full_cycle_then_learn(p / "e.jsonl", p / "w.json")

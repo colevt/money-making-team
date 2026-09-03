@@ -3,6 +3,8 @@ ledger/.ingest-offset
 ledger/.last-rules-pull
 ledger/sources_snapshot.json
 ledger/osiris_snapshot.json
+ledger/oneinch_snapshot.json
+ledger/x_tape.json
 __pycache__/
 *.pyc
 .DS_Store

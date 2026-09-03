@@ -10,6 +10,8 @@
     "learn": "python3 tools/learn_from_settle.py",
     "update": "python3 tools/daily_update.py",
     "osiris": "python3 tools/osiris.py",
+    "oneinch": "python3 tools/oneinch.py",
+    "execute": "python3 tools/execute.py",
     "sources": "python3 tools/pull_sources.py",
     "test": "python3 tools/test_ledger_contract.py",
     "bootstrap": "bash tools/bootstrap.sh"

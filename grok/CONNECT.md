@@ -2,7 +2,7 @@
 
 Cursor is how you make the bots better: edit [scorer.md](scorer.md), [trader.md](trader.md), [CYCLE.md](CYCLE.md), [playbook.md](../playbook.md), push, and the Bots pick it up on the **once-a-day** `python3 tools/daily_update.py`. Bot **descriptions** are short pointers ([paste/scorer.txt](paste/scorer.txt), [paste/trader.txt](paste/trader.txt)). Paste those once.
 
-Two Bots only. Unusual Whales, X, ESPN, Kraken, and OSIRIS are **feeds the Scorer pulls**, not extra Bots. Use all of them every scan.
+Two Bots only. Unusual Whales, X, ESPN, Kraken, OSIRIS, and 1inch quotes are **feeds the Scorer pulls**, not extra Bots. Tickets go to Kalshi, Polymarket US, **and** onchain 1inch — as many as clear the gate.
 
 The cycle lives in this git repo. Events go to `ledger/events.jsonl` via `python3 tools/append_event.py`. **Lovable is display-only** (`site/` later). Do not ask for ingest tokens. Never put venue keys in a Bot profile, chat, or share link.
 
@@ -21,7 +21,7 @@ cd money-making-team
 bash tools/bootstrap.sh
 ```
 
-If you already cloned the nested copy (`money-making-team/money-making-team`), `python3 tools/daily_update.py --force` from the clone root; tools now sit at the repo root. No `.env`. No Origin login.
+If you already cloned the nested copy (`money-making-team/money-making-team`), `python3 tools/daily_update.py --force` from the clone root; tools now sit at the repo root. Trader `--live` needs `.env` keys (never in the Bot profile).
 
 ## 2. Scorer plugins (account-wide)
 
@@ -33,7 +33,7 @@ Settings → Plugins, enable on the **Scorer** (Trader does not need them):
 | X | `4022021` | news + lag (must actually pull) |
 | Kraken | `4031115` | public ticker / paper only — never `-s trade` |
 
-Trader gets Kalshi + Polymarket US signed-post connectors only. ESPN is a public pull the Scorer does. MCP must be public HTTPS. Local stdio / `localhost` will not attach.
+Trader fills Kalshi + Polymarket US + Polygon 1inch via `python3 tools/execute.py`. Keys stay in `.env` on the Bot computer, never in the profile. ESPN is a public pull the Scorer does. MCP must be public HTTPS. Local stdio / `localhost` will not attach.
 
 ## 3. Paste once into each Bot profile
 
@@ -48,8 +48,8 @@ Save [paste/skill-desk.txt](paste/skill-desk.txt) as the `money-team-desk` skill
 
 First messages:
 
-- Scorer: `read grok/scorer.md and grok/CYCLE.md. Run bash tools/bootstrap.sh if tools/ is missing. Run one ingest+score. Quiet if the gate fails. Do not fill. Do not git pull every scan. Ledger is local. Do not ask for Lovable tokens.`
-- Trader: `read grok/trader.md. Fill only if this cycle already has score.gate_pass true. Do not git pull on a handoff. Ledger is local. Do not ask for Lovable tokens.`
+- Scorer: `read grok/scorer.md and grok/CYCLE.md. Run bash tools/bootstrap.sh if tools/ is missing. Pull all eight feeds (osiris.py + oneinch.py). Emit one score per fillable Kalshi, Polymarket US, and 1inch market. Cycle quiet only if none pass. Do not fill. Do not git pull every scan.`
+- Trader: `read grok/trader.md. Fill EVERY passing score this cycle: python3 tools/execute.py --cycle_id … then --live --append. Kalshi, Polymarket US, and 1inch. Do not stop after one ticket. Do not git pull on a handoff.`
 
 ## 4. Routines
 
@@ -57,7 +57,7 @@ First messages:
 
 **Scorer scan:** every 5 minutes `python3 tools/heartbeat.py --bot scorer`, then one scan from CYCLE.md. No `git pull`.
 
-**Trader:** no scan of its own. When Scorer hands over `gate_pass true`, ticket → post → fill → mark. No `git pull`.
+**Trader:** no scan of its own. When Scorer emits any `gate_pass true`, run `python3 tools/execute.py --cycle_id …` (then `--live --append`). Fill all of them. No `git pull`.
 
 ## 5. How tweaks work (Cursor)
 
@@ -74,7 +74,7 @@ python3 tools/test_ledger_contract.py
 tail -n 20 ledger/events.jsonl
 ```
 
-Quiet: `ingest` (seven feeds, X actually pulled, OSIRIS `python3 tools/osiris.py`) + `score` with `model_cents` + `quiet`. Fired: Trader `ticket` → `post` → `fill` → `mark`, later `settle`, then Scorer `python3 tools/learn_from_settle.py --cycle_id …`.
+Quiet: `ingest` (eight feeds, X actually pulled, OSIRIS + 1inch quoted) + scores + cycle `quiet` only if none passed. Fired: Trader `python3 tools/execute.py --cycle_id … --live --append` for **every** passing market. Later `settle` per ticket, then Scorer `python3 tools/learn_from_settle.py --cycle_id … --ticket_id …`.
 
 Local app: `python3 tools/serve_desk.py` → http://127.0.0.1:8765. That is the desk. Lovable is a later public copy of `site/`, not a token the bots wait on.
 
@@ -94,8 +94,9 @@ Do not add this webhook on `colevt/money-making-team` unless Osiris operators gi
 
 - Keys, RSA, signed payloads in chat or description
 - Asking for or storing a Lovable ingest token
-- Live Kraken, Global CLOB, Onchain as a ticket venue
-- Ask ≥ 0.80, sports before first pitch, null `model_cents`
+- Live Kraken, Global CLOB
+- Ask ≥ 0.80 on Kalshi/Poly; onchain ask ≥ 1.00; sports before first pitch; null `model_cents`
+- Filling only one venue when others also passed
 - `learn` on quiet
 - `git pull` on every scan (use the daily update)
 - A third Bot for X, ESPN, or Kraken

@@ -1,20 +1,17 @@
-Every 5-minute scan the Scorer pulls ALL of these. Use every feed in the model. Git rules update once a day — market data does not. Do not skip X or OSIRIS.
+Every scan the Scorer pulls ALL of these. Score EVERY fillable market on Kalshi, Polymarket US, and 1inch. Many tickets per cycle are legal. Git rules update once a day.
 
 SCORING (required ingest keys, each {ok, lag_s, note}):
-1. unusual_whales — Unusual Whales plugin 4021654. 1m/15m OHLC, flow/sweeps/unusual size, IBIT+MSTR US hours, map unusual-markets to fillable Kalshi or Polymarket US (skip CLOB ghosts). Max lag 600s. Tape >10m → ok=false.
-2. x_news — X plugin 4022021. search_news + recent posts EVERY cycle (beat writers, injuries, lineups, headline lag). ok=true with "no pull yet" is illegal. Max lag 300s.
-3. espn — public ESPN game state (score, clock, started?). Sports after first pitch/tip/kick. On crypto15m still pull, note "not used crypto15m". Max lag 45s on sports.
-4. crypto — Kraken plugin 4031115 public ticker/OHLC/paper only (never -s trade, never withdraw) plus UW spots. BTC ETH SOL XRP. Vs KXBTC15M / KXETH15M / KXXRP15M. Max lag 180s.
-5. kalshi — live bid/ask/mark/depth. Fillable tickers only. Max lag 20s.
-6. polymarket_us — live bid/ask/mark/depth. Fillable US tickers only. Max lag 20s.
-7. osiris — python3 tools/osiris.py (https://osirisai.live/docs#quickstart, no key). Pull ALL trade routes: /api/stats /api/markets /api/crypto /api/news /api/country-risk /api/conflicts /api/gdelt /api/space-weather /api/cyber-threats /api/weather. Cross-check spots vs Kraken/UW. News/risk on the x weight. max_risk>=7 related to the market → quiet unless the book moved. Skip flights/CCTV GeoJSON. Max lag 90s.
+1. unusual_whales — plugin 4021654. 1m/15m OHLC, flow, IBIT+MSTR, map to fillable Kalshi/Poly US. Max lag 600s.
+2. x_news — plugin 4022021. search_news + posts EVERY cycle. ok=true with "no pull yet" is illegal. Max lag 300s.
+3. espn — public game state. Sports after first pitch. crypto15m note "not used crypto15m". Max lag 45s on sports.
+4. crypto — Kraken plugin 4031115 public/paper only (never -s trade) + UW spots. BTC ETH SOL XRP. Also the fair for 1inch. Max lag 180s.
+5. kalshi — live book on ALL fillable tickers. Max lag 20s.
+6. polymarket_us — live book on ALL fillable US tickers. Max lag 20s.
+7. osiris — python3 tools/osiris.py. Trade GETs only. Max lag 90s.
+8. onchain — python3 tools/oneinch.py (ONEINCH_API_KEY). USDC→WETH/WBTC/SOL vs Kraken. Ticket venue. Wallet 0xcE01…49BF. POL is gas. Max lag 20s.
 
-DESK / CASH (read every cycle, not ticket venues):
-8. Live desk GET https://merger-sole-additional-checked.trycloudflare.com/api/desk (blotter, cash, feed health).
-9. Onchain Polygon native USDC 0xcE01ddD2141e4efDB929265A538981043b7449BF — cash only, POL is gas, never a ticket venue.
+Trader: python3 tools/execute.py --cycle_id … then --live --append. Fills every passing score (Kalshi + Poly + 1inch), not just one.
 
-NOT SOURCES: Global CLOB (403), Lovable, live Kraken, Onchain as venue, OSIRIS RECON/scanner (active scan), POST /api/github-webhook (signed GitHub forwarder — empty {} is not a feed). Scoring OSIRIS is python3 tools/osiris.py GETs only.
+NOT SOURCES: Global CLOB, Lovable, live Kraken, OSIRIS RECON/scanner, POST /api/github-webhook.
 
-Hours: US → book_kind=sports (UW, X, OSIRIS news/risk, ESPN, live book; freeze crypto). Overnight + Kalshi 15m → book_kind=crypto15m (UW+Kraken+OSIRIS crypto/markets vs KXBTC/KXETH/KXXRP 15m; freeze espn).
-
-Two Bots only. Scorer pulls 1–9. Trader posts Kalshi / Polymarket US only after gate_pass (which requires fresh OSIRIS).
+Hours: US sports → kalshi/poly, book_kind=sports. Crypto 15m + 1inch → book_kind=crypto15m.

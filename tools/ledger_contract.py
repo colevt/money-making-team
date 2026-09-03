@@ -11,12 +11,18 @@ KINDS = {
     "flatten", "settle", "learn", "feed_health", "heartbeat",
 }
 BOTS = {"scorer", "news", "espn", "crypto", "trader"}
-VENUES = {"kalshi", "polymarket_us"}
+VENUES = {"kalshi", "polymarket_us", "onchain"}
 BOOK_KINDS = {"sports", "crypto15m"}
 WEIGHT_KEYS = ("uw", "x", "espn", "crypto", "book")
 INGEST_FEEDS = (
     "unusual_whales", "x_news", "espn", "crypto", "kalshi", "polymarket_us", "osiris",
+    "onchain",
 )
+VENUE_FEEDS = {
+    "kalshi": "kalshi",
+    "polymarket_us": "polymarket_us",
+    "onchain": "onchain",
+}
 FEED_TO_WEIGHT = {
     "unusual_whales": "uw",
     "x_news": "x",
@@ -25,6 +31,7 @@ FEED_TO_WEIGHT = {
     "kalshi": "book",
     "polymarket_us": "book",
     "osiris": "x",
+    "onchain": "book",
 }
 RESULTS = {"WON", "LOST"}
 HEALTH = {"ok", "warn", "bad"}
@@ -32,6 +39,7 @@ SIDES = {"YES", "NO", "BUY", "SELL"}
 CONSTRAINTS = {"scoring", "execution"}
 GATE_PCT = 6.0
 ASK_CAP = 0.80
+ONCHAIN_ASK_CAP = 1.00  # 1inch vs Kraken/UW fair; do not pay above fair
 LEARN_STEP = 0.02
 MIN_WEIGHT = 0.02
 
@@ -44,6 +52,7 @@ STALE_S = {
     "kalshi": 20,
     "polymarket_us": 20,
     "osiris": 90,
+    "onchain": 20,
 }
 
 DEFAULT_WEIGHTS = {
@@ -106,17 +115,67 @@ def last_of(events: list[dict], cycle_id: str, kind: str) -> dict | None:
     return found
 
 
+def of_kind(events: list[dict], cycle_id: str, kind: str) -> list[dict]:
+    return [e for e in events if e.get("cycle_id") == cycle_id and e.get("kind") == kind]
+
+
+def passing_score_for(events: list[dict], cycle_id: str, venue: str, market_id: str) -> dict | None:
+    found = None
+    for e in of_kind(events, cycle_id, "score"):
+        if (
+            e.get("gate_pass") is True
+            and e.get("venue") == venue
+            and e.get("market_id") == market_id
+        ):
+            found = e
+    return found
+
+
+def cycle_quiet(events: list[dict], cycle_id: str) -> dict | None:
+    for e in of_kind(events, cycle_id, "quiet"):
+        if not e.get("market_id"):
+            return e
+    return None
+
+
+def market_quiet(events: list[dict], cycle_id: str, venue: str, market_id: str) -> dict | None:
+    for e in of_kind(events, cycle_id, "quiet"):
+        if e.get("market_id") == market_id and (not e.get("venue") or e.get("venue") == venue):
+            return e
+    return None
+
+
+def ask_cap_for(venue: str | None) -> float:
+    if venue == "onchain":
+        return ONCHAIN_ASK_CAP
+    return ASK_CAP
+
+
 def gate_pass_value(event: dict) -> bool:
+    venue = event.get("venue")
     return (
         float(event.get("edge_pct") or 0) >= GATE_PCT
-        and float(event.get("ask") or 1) < ASK_CAP
-        and event.get("venue") in VENUES
+        and float(event.get("ask") or 1) < ask_cap_for(venue)
+        and venue in VENUES
     )
 
 
-def ingest_kill_reason(ingest: dict, book_kind: str | None) -> str | None:
+def ingest_kill_reason(
+    ingest: dict, book_kind: str | None, venue: str | None = None,
+) -> str | None:
     feeds = ingest.get("feeds") or {}
+    needed = set(INGEST_FEEDS)
+    if book_kind == "crypto15m":
+        needed.discard("espn")
+    if book_kind == "sports":
+        needed.discard("crypto")
+        needed.discard("onchain")
+    if venue in VENUE_FEEDS:
+        skip_books = set(VENUE_FEEDS.values()) - {VENUE_FEEDS[venue]}
+        needed -= skip_books
     for name in INGEST_FEEDS:
+        if name not in needed:
+            continue
         row = feeds.get(name) or {}
         note = str(row.get("note") or "").lower()
         ok = row.get("ok")
@@ -129,17 +188,12 @@ def ingest_kill_reason(ingest: dict, book_kind: str | None) -> str | None:
         if name == "osiris" and ("no pull" in note or "incomplete" in note):
             if ok is not True:
                 return "osiris did not pull"
-        if name == "espn" and book_kind == "crypto15m":
-            continue
-        if name == "crypto" and book_kind == "sports":
-            if ok is False:
-                return f"{name} ok=false"
-            continue
+        if name == "onchain" and ("no pull" in note or "no quote" in note):
+            if ok is not True:
+                return "onchain did not quote"
         if ok is False:
             return f"{name} ok=false"
         limit = STALE_S[name]
-        if name == "espn" and book_kind != "sports":
-            continue
         if lag > limit:
             return f"{name} lag_s {lag:.0f} > {limit}s stale"
     return None
@@ -266,6 +320,8 @@ def _validate_ingest(event: dict) -> None:
             fail("x_news ok=true cannot be 'no pull' — pull or set ok=false")
         if name == "osiris" and row.get("ok") is True and ("no pull" in note or "incomplete" in note):
             fail("osiris ok=true cannot be incomplete — python3 tools/osiris.py")
+        if name == "onchain" and row.get("ok") is True and ("no pull" in note or "no quote" in note):
+            fail("onchain ok=true cannot be no quote — python3 tools/oneinch.py")
 
 
 def _validate_score(event: dict, events: list[dict]) -> None:
@@ -284,10 +340,12 @@ def _validate_score(event: dict, events: list[dict]) -> None:
     _str(event, "market_id")
     venue = _str(event, "venue")
     if venue not in VENUES:
-        fail("venue must be kalshi or polymarket_us")
+        fail("venue must be kalshi, polymarket_us, or onchain")
     book_kind = _str(event, "book_kind")
     if book_kind not in BOOK_KINDS:
         fail("book_kind must be sports or crypto15m")
+    if venue == "onchain" and book_kind != "crypto15m":
+        fail("onchain tickets are crypto15m only (1inch vs Kraken/UW)")
     used = event.get("feeds_used")
     if not isinstance(used, list) or not used:
         fail("score requires feeds_used[] (uw|x|espn|crypto|book)")
@@ -297,14 +355,18 @@ def _validate_score(event: dict, events: list[dict]) -> None:
     if "weights" in event:
         validate_weights(event["weights"], "weights")
     expected = gate_pass_value(event)
+    cap = ask_cap_for(venue)
     if event.get("gate_pass") is not expected:
-        fail(f"gate_pass must be {expected} (edge>={GATE_PCT:g} and ask<{ASK_CAP} and kalshi|polymarket_us)")
+        fail(
+            f"gate_pass must be {expected} "
+            f"(edge>={GATE_PCT:g} and ask<{cap:g} and kalshi|polymarket_us|onchain)"
+        )
 
     ingest = last_of(events, event["cycle_id"], "ingest")
     if expected:
         if not ingest:
             fail("gate_pass true requires ingest in the same cycle_id")
-        why = ingest_kill_reason(ingest, book_kind)
+        why = ingest_kill_reason(ingest, book_kind, venue)
         if why:
             fail(f"gate_pass true blocked: {why}")
 
@@ -312,54 +374,68 @@ def _validate_score(event: dict, events: list[dict]) -> None:
 def _validate_ticket(event: dict, events: list[dict]) -> None:
     venue = _str(event, "venue")
     if venue not in VENUES:
-        fail("venue must be kalshi or polymarket_us")
+        fail("venue must be kalshi, polymarket_us, or onchain")
     side = _str(event, "side")
     if side not in SIDES:
         fail("side must be YES|NO|BUY|SELL")
+    if venue == "onchain" and side not in {"BUY", "SELL"}:
+        fail("onchain side must be BUY or SELL")
+    if venue != "onchain" and side not in {"YES", "NO"}:
+        fail("kalshi/polymarket_us side must be YES or NO")
     _num(event, "size_usd")
     _num(event, "entry_cents")
-    _str(event, "market_id")
+    market_id = _str(event, "market_id")
     _str(event, "market")
     if events:
-        score = last_of(events, event["cycle_id"], "score")
-        if score is None or score.get("gate_pass") is not True:
-            fail("ticket requires score.gate_pass true in this cycle")
-        if last_of(events, event["cycle_id"], "quiet") is not None:
-            fail("ticket after quiet in this cycle")
+        score = passing_score_for(events, event["cycle_id"], venue, market_id)
+        if score is None:
+            fail("ticket requires matching score.gate_pass for this venue and market_id")
+        if cycle_quiet(events, event["cycle_id"]) is not None:
+            fail("ticket after cycle quiet")
+        if market_quiet(events, event["cycle_id"], venue, market_id) is not None:
+            fail("ticket after quiet for this market")
 
 
 def _validate_post(event: dict, events: list[dict]) -> None:
     venue = _str(event, "venue")
     if venue not in VENUES:
-        fail("venue must be kalshi or polymarket_us")
-    _str(event, "market_id")
+        fail("venue must be kalshi, polymarket_us, or onchain")
+    market_id = _str(event, "market_id")
     if event.get("confirmed_live") is not True:
         fail("post requires confirmed_live true")
     if event.get("under_cap") is not True:
         fail("post requires under_cap true")
     if events:
-        score = last_of(events, event["cycle_id"], "score")
-        if score is None or score.get("gate_pass") is not True:
-            fail("post requires score.gate_pass true in this cycle")
+        score = passing_score_for(events, event["cycle_id"], venue, market_id)
+        if score is None:
+            fail("post requires matching score.gate_pass for this venue and market_id")
+        if cycle_quiet(events, event["cycle_id"]) is not None:
+            fail("post after cycle quiet")
 
 
 def _validate_fill(event: dict, events: list[dict]) -> None:
     _str(event, "ticket_id")
     venue = _str(event, "venue")
     if venue not in VENUES:
-        fail("venue must be kalshi or polymarket_us")
+        fail("venue must be kalshi, polymarket_us, or onchain")
     _str(event, "side")
     _num(event, "size_usd")
     _num(event, "entry_cents")
-    _str(event, "market_id")
+    market_id = _str(event, "market_id")
     if events:
-        score = last_of(events, event["cycle_id"], "score")
-        if score is None or score.get("gate_pass") is not True:
-            fail("fill requires score.gate_pass true in this cycle")
-        if last_of(events, event["cycle_id"], "post") is None:
-            fail("fill requires post in the same cycle_id")
-        if last_of(events, event["cycle_id"], "quiet") is not None:
-            fail("fill after quiet in this cycle")
+        score = passing_score_for(events, event["cycle_id"], venue, market_id)
+        if score is None:
+            fail("fill requires matching score.gate_pass for this venue and market_id")
+        posts = [
+            p for p in of_kind(events, event["cycle_id"], "post")
+            if p.get("venue") == venue and p.get("market_id") == market_id
+        ]
+        if not posts:
+            fail("fill requires post for this venue and market_id")
+        if cycle_quiet(events, event["cycle_id"]) is not None:
+            fail("fill after cycle quiet")
+        if market_quiet(events, event["cycle_id"], venue, market_id) is not None:
+            fail("fill after quiet for this market")
 
 
 def _validate_settle(event: dict) -> None:
@@ -389,8 +465,7 @@ def _validate_learn(event: dict, events: list[dict]) -> None:
     settle = last_of(events, event["cycle_id"], "settle")
     if events and settle is None:
         fail("learn requires settle in the same cycle_id")
-    quiet = last_of(events, event["cycle_id"], "quiet")
-    if quiet is not None and settle is None:
+    if events and cycle_quiet(events, event["cycle_id"]) is not None and settle is None:
         fail("quiet cycles must not emit learn")
 
 

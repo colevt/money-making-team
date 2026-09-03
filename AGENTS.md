@@ -4,11 +4,10 @@ This repo is the live desk for **two** Grok bots (Scorer + Trader). Improve them
 
 Lovable is a public view of `site/` later. It is not in the agent loop. Do not ask for ingest tokens.
 
-- After every cycle (trade or quiet): `python3 tools/append_event.py '…'`
-- Score requires `model_cents`. Null model is not a score.
-- Gate: edge >= 6% AND ask < 0.80 AND fresh ingest, else `quiet`.
-- Scoring only: Unusual Whales, X, ESPN, Kraken, OSIRIS (never `-s trade`, never withdraw).
-- Tickets: Kalshi or Polymarket US only. Onchain is cash, not a venue.
-- After settle only: `python3 tools/learn_from_settle.py --cycle_id …`. Quiet does not learn.
+- After every cycle: `python3 tools/append_event.py '…'`
+- Score requires `model_cents`. One score per fillable Kalshi, Polymarket US, **and** 1inch market. Many tickets per cycle.
+- Gate: edge >= 6%. Kalshi/Poly ask < 0.80. Onchain ask < 1.00 (1inch vs Kraken/UW).
+- Trader: `python3 tools/execute.py --cycle_id …` then `--live --append`. Keys in `.env` only.
+- After settle: `python3 tools/learn_from_settle.py --cycle_id … --ticket_id …`
 - Heartbeat: `python3 tools/heartbeat.py`
 - Never paste keys into chat.

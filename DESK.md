@@ -16,7 +16,7 @@ The server proxies `GET /api/desk` from `LIVE_DESK_URL` and verifies Onchain nat
 
 - **Polymarket US** — signed fills
 - **Kalshi** — signed fills
-- **Onchain** — Polygon DEX native USDC (`0xcE01…49BF`). POL is gas, not cash. Do not mix this into Kalshi/Poly ticket runway.
+- **Onchain** — Polygon 1inch (`python3 tools/oneinch.py` / `execute.py --live`). Native USDC `0xcE01…49BF`. POL is gas. Do not mix this USDC into Kalshi/Poly size.
 
 Kraken, Unusual Whales, X, and ESPN are scoring feeds, not fill accounts. Global CLOB is not a wallet.
 

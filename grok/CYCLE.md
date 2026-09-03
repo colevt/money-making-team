@@ -1,40 +1,44 @@
 # Grok cycle (do not skip steps)
 
-One `cycle_id` per scan. Tools reject a ticket if ingest is missing/stale or `model_cents` is absent.
+One `cycle_id` per scan. **Many tickets per cycle are legal** — one `score` per market×venue, then fill all that pass.
 
 ```text
-daily_update  once/day  python3 tools/daily_update.py   # skip if already pulled today
-heartbeat (every 5 min, even if idle)
-    python3 tools/heartbeat.py     # scorer + trader only. no git pull.
+daily_update  once/day  python3 tools/daily_update.py
+heartbeat (every 5 min)
+    python3 tools/heartbeat.py
 
-ingest     scorer   all seven feeds: unusual_whales, x_news, espn, crypto, kalshi, polymarket_us, osiris
-                    osiris via python3 tools/osiris.py  (stats, markets, crypto, news, risk, conflicts)
-score      scorer   model_cents, book_cents, edge_pct = model−book, book_kind, feeds_used
-           ├─ gate fail or stale  → quiet (reason)  STOP. no learn.
-           └─ gate pass
-ticket     trader   kalshi | polymarket_us only
-post       trader   confirmed_live=true, under_cap=true
-fill       trader   ticket_id
-mark       trader   every check while open
-flatten    trader   only if an exit trigger fires
-settle     trader   WON|LOST, pl_usd, settle_cents
-learn      scorer   python3 tools/learn_from_settle.py --cycle_id <id>
+ingest     scorer   eight feeds: unusual_whales, x_news, espn, crypto,
+                    kalshi, polymarket_us, osiris, onchain
+                    osiris: python3 tools/osiris.py
+                    onchain: python3 tools/oneinch.py
+score      scorer   ONE score per fillable market×venue (kalshi, polymarket_us, onchain)
+           ├─ none pass  → cycle quiet (no market_id)  STOP. no learn.
+           └─ any pass   → keep going; optional per-market quiet for the rest
+ticket…    trader   python3 tools/execute.py --cycle_id <id>
+                    then --live --append when keys are in .env
+                    kalshi + polymarket_us + onchain in the same cycle
+mark       trader   every open ticket
+flatten    trader   per ticket if an exit trigger fires
+settle     trader   per ticket WON|LOST
+learn      scorer   python3 tools/learn_from_settle.py --cycle_id <id> --ticket_id <id>
 ```
 
 ## book_kind
 
-- `sports` — live US sports after the game has started. Train ESPN + X + book. Freeze `crypto`. OSIRIS news/risk sits on the `x` weight.
-- `crypto15m` — Kalshi KXBTC/KXETH/KXXRP 15m vs UW+Kraken OHLC **and** OSIRIS `/api/crypto`+`/api/markets`. Train UW + crypto + book. Freeze `espn`.
+- `sports` — live US sports after the game has started. Venues: kalshi, polymarket_us. Not onchain.
+- `crypto15m` — Kalshi/Poly 15m **and** 1inch USDC→WETH/WBTC/SOL vs UW+Kraken+OSIRIS. Freeze `espn`.
 
 ## Illegal
 
-- Fill without `score.gate_pass=true` on this cycle
+- Filling only the first passing score when others also passed
+- Fill without a matching `score.gate_pass` for that venue + `market_id`
 - `x_news.ok=true` with note `no pull yet`
-- Skipping OSIRIS (`python3 tools/osiris.py`) or `osiris` incomplete
-- POSTing `https://osirisai.live/api/github-webhook` (empty `{}` or otherwise). That is a signed GitHub forwarder, not a scoring GET.
+- Skipping OSIRIS or 1inch (`python3 tools/osiris.py`, `python3 tools/oneinch.py`)
+- POSTing `https://osirisai.live/api/github-webhook`
 - Null `model_cents`
-- `learn` on quiet
+- `learn` on a cycle with no settle
 - Changing the 6% gate
-- Kraken live order, Global CLOB, Onchain as a ticket venue, ask ≥ 0.80
-- POSTing to Lovable or waiting on an ingest token
-- `git pull` on every cycle (use `python3 tools/daily_update.py`, once a day)
+- Kraken live order, Global CLOB
+- Onchain `book_kind=sports`
+- POSTing to Lovable
+- `git pull` on every cycle
