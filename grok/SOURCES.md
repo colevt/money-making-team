@@ -19,7 +19,7 @@ These **eight** keys are **required** on every `ingest` event. Each `{ ok, lag_s
 | 5 | `kalshi` | Kalshi live book | Scorer reads the book; Trader posts via `tools/execute.py` | Bid/ask/mark/depth on **all** fillable tickers. | 20s | `book` |
 | 6 | `polymarket_us` | Polymarket US live book | Scorer reads the book; Trader posts via `tools/execute.py` | Bid/ask/mark/depth on **all** fillable US tickers. | 20s | `book` |
 | 7 | `osiris` | OSIRIS API https://osirisai.live/docs | `python3 tools/osiris.py` — no key. Then read `ledger/osiris_snapshot.json`. | **Every keyless GET feed** (27). Geometry is compacted. Use all of it in the model. `max_risk>=7`, quake mag≥6, jamming, hot infra, cyber CRITICAL tied to a market → skip unless the book moved. | 90s | `x` |
-| 8 | `onchain` | 1inch Swap API v6.1 Polygon | `python3 tools/oneinch.py` (needs `ONEINCH_API_KEY`) | USDC → WETH/WBTC/SOL quotes vs Kraken/UW **and** vs the crypto tape VWAP. Ticket venue for both 6% mispricing (`crypto15m`) and 0.35% scalp (`crypto_scalp`). Wallet `0xcE01ddD2141e4efDB929265A538981043b7449BF`. POL is gas. | 20s | `book` |
+| 8 | `onchain` | 1inch Swap API v6.1 Polygon + DexScreener public | `python3 tools/oneinch.py` (needs `ONEINCH_API_KEY`); `python3 tools/dexscreener.py` for pool liquidity + volume ratio | USDC → WETH/WBTC/SOL quotes vs Kraken/UW **and** vs the crypto tape VWAP. Ingest note includes deepest Polygon pair liquidity (`liquidity.usd`) and `vol6h/h24` ratio per token. Ticket venue for both 6% mispricing (`crypto15m`) and 0.35% scalp (`crypto_scalp`). Wallet `0xcE01ddD2141e4efDB929265A538981043b7449BF`. POL is gas. DexScreener dead → `onchain` still ok if 1inch quoted; scalp liquidity exit/fee-floor degrade gracefully. | 20s | `book` |
 
 Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A score that ignores OSIRIS, X, UW, or 1inch (on crypto15m) is incomplete.
 
@@ -37,7 +37,7 @@ Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A 
 | --- | --- | --- | --- |
 | US hours | `sports` | UW flow (IBIT/MSTR), X lag, OSIRIS news/risk, ESPN live game, Kalshi or Poly US book | `crypto` weight |
 | Overnight + Kalshi 15m crypto (also daytime 15m) | `crypto15m` | UW OHLC + Kraken + OSIRIS `/api/crypto`+`/api/markets` vs `KXBTC15M` / `KXETH15M` / `KXXRP15M` **and** 1inch USDC→WETH/WBTC/SOL | `espn` weight |
-| Every scan, day or night | `crypto_scalp` | Crypto tape (local high/low/VWAP) + 1inch + UW flow + X acceleration. `python3 tools/scalp.py`. Buy dip, sell high, many $1 round-trips. | `espn` weight |
+| Every scan, day or night | `crypto_scalp` | Crypto tape (local high/low/VWAP) + 1inch + DexScreener liquidity/volume + UW flow + X acceleration. `python3 tools/scalp.py`. Buy dip, sell high, many $1 round-trips. Exit on take/stop **or** volume decay (`h6/(h24/4) < 0.20`). | `espn` weight |
 
 ## Not sources
 
@@ -55,7 +55,7 @@ Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A 
 | Action | Cadence | Command |
 | --- | --- | --- |
 | Rules from Cursor | Once per America/Denver day | `python3 tools/daily_update.py` |
-| All sources above | Every 5-minute scan | Scorer: plugins + public pulls. Snapshot: `python3 tools/pull_sources.py`. Tape: `python3 tools/crypto_tape.py`. Scalp scores: `python3 tools/scalp.py --cycle_id … --append` |
+| All sources above | Every 5-minute scan | Scorer: plugins + public pulls. Snapshot: `python3 tools/pull_sources.py`. Tape: `python3 tools/crypto_tape.py`. Dex: `python3 tools/dexscreener.py`. Scalp scores: `python3 tools/scalp.py --cycle_id … --append` |
 | Heartbeat | Every 5 minutes | `python3 tools/heartbeat.py --bot scorer` |
 
 ## Ingest example (all eight keys)
@@ -74,7 +74,7 @@ Do not create extra Bots for #1–4, #7, or #8. One Scorer pulls all of them. A 
     "kalshi": {"ok": true, "lag_s": 1, "note": "KXXRP15M YES 72¢"},
     "polymarket_us": {"ok": true, "lag_s": 1, "note": "no twin"},
     "osiris": {"ok": true, "lag_s": 8, "note": "BTC 77300 · VIX 15.2 · news risk 3"},
-    "onchain": {"ok": true, "lag_s": 8, "note": "WETH 2389 vs 2389 edge +0.0"}
+    "onchain": {"ok": true, "lag_s": 8, "note": "WETH 2389 vs 2389 edge +0.0 · ETH liq $2,278,493 vol6h/h24 1.88"}
   }
 }
 ```

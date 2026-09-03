@@ -11,6 +11,7 @@ ingest     scorer   eight feeds: unusual_whales, x_news, espn, crypto,
                     kalshi, polymarket_us, osiris, onchain
                     osiris: python3 tools/osiris.py
                     onchain: python3 tools/oneinch.py
+                    dex:     python3 tools/dexscreener.py   # pool liq + vol ratio (also in scalp.py)
                     tape:   python3 tools/crypto_tape.py
                     x:      python3 tools/x_tape.py          # then search_news + --record
 score      scorer   ONE score per fillable Kalshi / Polymarket US / 1inch-fair market
@@ -32,7 +33,7 @@ learn      scorer   python3 tools/learn_from_settle.py --cycle_id <id> --ticket_
 
 - `sports` — live US sports after the game has started. Venues: kalshi, polymarket_us. Not onchain.
 - `crypto15m` — Kalshi/Poly 15m **and** 1inch USDC→WETH/WBTC/SOL vs UW+Kraken+OSIRIS when 1inch is ≥6% cheap vs fair. Freeze `espn`.
-- `crypto_scalp` — onchain only. Buy ETH/BTC/SOL at a local low / VWAP dip; sell the same lot at a local high, take (~0.40%), or stop (~0.45%). Gate is **0.35%**, not 6%. Scores **must** come from `tools/scalp.py` / `compose_score.py` so weights actually drive the next ticket. Freeze `espn`.
+- `crypto_scalp` — onchain only. Buy ETH/BTC/SOL at a local low / VWAP dip; sell the same lot at a local high, take (~0.40%), stop (~0.45%), **or liquidity decay** (DexScreener 6h volume < 20% of 24h-implied 6h average). Gate is **0.35%**, not 6%. BUY also blocked when round-trip gas + spread at `TICKET_USD` needs > 0.35% to break even. Scores **must** come from `tools/scalp.py` / `compose_score.py` so weights actually drive the next ticket. Freeze `espn`.
 
 ## Self-learn
 

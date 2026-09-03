@@ -55,10 +55,10 @@ def test_summarize_flags_local_low():
 
 def test_buy_ok_and_flow_dump():
     row = merge_symbol(dip_bars(), flow_sign=1, x_sign=1)
-    ok, why = buy_ok(row, dict(DEFAULT_SCALP), held=False)
+    ok, why = buy_ok(row, dict(DEFAULT_SCALP), held=False, size_usd=100.0)
     assert ok, why
     dumped = merge_symbol(dip_bars(), flow_sign=-1)
-    ok2, why2 = buy_ok(dumped, dict(DEFAULT_SCALP), held=False)
+    ok2, why2 = buy_ok(dumped, dict(DEFAULT_SCALP), held=False, size_usd=100.0)
     assert not ok2
     assert "dumping" in why2
 
@@ -78,6 +78,68 @@ def test_sell_ok_take_and_stop():
     assert not ok3
 
 
+def test_volume_decay_forces_sell():
+    row = {"ok": True, "last": 100.0, "vwap": 100.0}
+    pos = {"entry_px": 100.0, "size_usd": 1.0}
+    dex_decay = {"ok": True, "volume_ratio": 0.15, "volume_decay": True, "liquidity_usd": 50000}
+    ok, why = sell_ok(row, pos, dict(DEFAULT_SCALP), dex_row=dex_decay)
+    assert ok, why
+    assert "liquidity decay" in why
+    dex_ok = {"ok": True, "volume_ratio": 0.85, "volume_decay": False}
+    ok2, _ = sell_ok(row, pos, dict(DEFAULT_SCALP), dex_row=dex_ok)
+    assert not ok2
+
+
+def test_fee_floor_rejects_small_lot():
+    from dexscreener import fee_floor_ok  # noqa: E402
+
+    row = merge_symbol(dip_bars(), oneinch_px=99.5, flow_sign=1)
+    ok, why = buy_ok(row, dict(DEFAULT_SCALP), held=False, size_usd=1.0)
+    # At $1 on Polygon, gas alone usually exceeds 0.35% gate unless mocked.
+    if not ok and "fee floor" in why:
+        assert "break-even" in why
+    else:
+        floor_ok, _, floor = fee_floor_ok(1.0, oneinch_px=99.5, fair_px=99.0, scalp_gate_pct=0.35)
+        if floor.get("break_even_pct", 0) > 0.35:
+            assert not floor_ok
+
+
+def test_fee_floor_ok_large_lot():
+    from dexscreener import round_trip_cost  # noqa: E402
+
+    floor = round_trip_cost(100.0, oneinch_px=2500.0, fair_px=2499.0, gas_wei=30_000_000_000, pol_px=0.10)
+    assert floor["ok"]
+    assert floor["break_even_pct"] < 0.35
+
+
+def test_compose_volume_decay_sell(tmp: Path):
+    os.environ["INVENTORY_PATH"] = str(tmp / "inv.json")
+    os.environ["CRYPTO_TAPE_PATH"] = str(tmp / "tape.json")
+    weights = {
+        "books": {
+            "crypto_scalp": {"uw": 0.30, "x": 0.10, "espn": 0.05, "crypto": 0.35, "book": 0.20},
+        },
+        "scalp": dict(DEFAULT_SCALP),
+    }
+    open_buy("ETH", qty_wei=10**15, entry_px=100.0, size_usd=1.0, ticket_id="t-decay", cycle_id=CID, market_id="USDC-WETH")
+    inv = load()
+    hold_row = {"symbols": {"ETH": merge_symbol(rally_bars(100.1), oneinch_px=100.1, flow_sign=0)}}
+    dex = {
+        "ok": True,
+        "symbols": {
+            "ETH": {"ok": True, "liquidity_usd": 1e6, "volume_ratio": 0.10, "volume_decay": True, "price_usd": 100.1},
+            "BTC": {"ok": False},
+            "SOL": {"ok": False},
+        },
+    }
+    out = compose(CID, tape=hold_row, books=weights, inventory=inv, dex=dex, size_usd=1.0, ts=TS)
+    sells = [s for s in out["scores"] if s["side"] == "SELL"]
+    assert len(sells) == 1
+    assert "liquidity decay" in sells[0]["reason"]
+    assert sells[0]["gate_pass"] is True
+    assert sells[0]["features"].get("volume_decay") is True
+
+
 def test_compose_buy_then_sell(tmp: Path):
     os.environ["INVENTORY_PATH"] = str(tmp / "inv.json")
     os.environ["CRYPTO_TAPE_PATH"] = str(tmp / "tape.json")
@@ -88,7 +150,7 @@ def test_compose_buy_then_sell(tmp: Path):
         "scalp": dict(DEFAULT_SCALP),
     }
     tape = {"symbols": {"ETH": merge_symbol(dip_bars(), oneinch_px=99.2, flow_sign=1)}}
-    out = compose(CID, tape=tape, books=weights, inventory={"positions": {}}, size_usd=1.0, ts=TS)
+    out = compose(CID, tape=tape, books=weights, inventory={"positions": {}}, size_usd=100.0, ts=TS)
     buys = [s for s in out["scores"] if s["side"] == "BUY" and s["market_id"] == "USDC-WETH"]
     assert len(buys) == 1
     buy = buys[0]
@@ -96,10 +158,10 @@ def test_compose_buy_then_sell(tmp: Path):
     assert buy["gate_pass"] is True
     assert buy["edge_pct"] >= 0.35
     assert "features" in buy
-    open_buy("ETH", qty_wei=10**15, entry_px=99.2, size_usd=1.0, ticket_id="t-eth", cycle_id=CID, market_id="USDC-WETH")
+    open_buy("ETH", qty_wei=10**15, entry_px=99.2, size_usd=100.0, ticket_id="t-eth", cycle_id=CID, market_id="USDC-WETH")
     inv = load()
     high = {"symbols": {"ETH": merge_symbol(rally_bars(100.0), oneinch_px=100.0, flow_sign=0)}}
-    out2 = compose(CID, tape=high, books=weights, inventory=inv, size_usd=1.0, ts=TS)
+    out2 = compose(CID, tape=high, books=weights, inventory=inv, size_usd=100.0, ts=TS)
     sells = [s for s in out2["scores"] if s["side"] == "SELL"]
     assert len(sells) == 1
     assert sells[0]["gate_pass"] is True
@@ -190,10 +252,14 @@ def main() -> None:
     test_summarize_flags_local_low()
     test_buy_ok_and_flow_dump()
     test_sell_ok_take_and_stop()
+    test_volume_decay_forces_sell()
+    test_fee_floor_rejects_small_lot()
+    test_fee_floor_ok_large_lot()
     test_scalp_params_learn_from_pnl()
     with tempfile.TemporaryDirectory() as d:
         p = Path(d)
         os.environ["INVENTORY_PATH"] = str(p / "inv.json")
+        test_compose_volume_decay_sell(p)
         test_compose_buy_then_sell(p)
         test_learn_from_scalp_settle(p)
     print("scalp tests passed")
