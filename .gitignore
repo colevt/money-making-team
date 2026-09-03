@@ -4,6 +4,7 @@ ledger/.last-rules-pull
 ledger/sources_snapshot.json
 ledger/osiris_snapshot.json
 ledger/oneinch_snapshot.json
+ledger/dexscreener_snapshot.json
 ledger/x_tape.json
 ledger/crypto_tape.json
 ledger/inventory.json
