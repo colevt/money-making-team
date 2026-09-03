@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Worlds #1 Money Team — Desk</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <div>
+      <div class="mark">Worlds #1 Money Team</div>
+      <div class="venues">Polymarket US &nbsp;·&nbsp; Kalshi &nbsp;·&nbsp; Onchain</div>
+    </div>
+    <div class="clock"><span class="bulb"></span><span id="clock" class="num">—</span></div>
+    <nav class="tabs" aria-label="sections">
+      <button type="button" data-tab="desk" class="on">Desk</button>
+      <button type="button" data-tab="learn">Learn</button>
+    </nav>
+  </header>
+
+  <div id="view-desk" class="view on">
+    <section class="accounts" id="accounts"></section>
+    <section class="board" id="hero"></section>
+    <section class="strip" id="strip"></section>
+    <div class="body">
+      <section class="card">
+        <div class="card-h">
+          <h2>Blotter</h2>
+          <span class="count" id="blotterCount"></span>
+          <span class="right">newest first</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Market</th>
+                <th class="r">Side</th>
+                <th class="r">Entry</th>
+                <th class="r">Size</th>
+                <th class="r">Result</th>
+                <th class="r">P/L</th>
+              </tr>
+            </thead>
+            <tbody id="blotter"></tbody>
+          </table>
+        </div>
+      </section>
+      <div style="display:grid;gap:18px">
+        <section class="card">
+          <div class="card-h"><h2>Equity</h2><span class="right" id="eqRange"></span></div>
+          <div class="eq">
+            <div id="equity"></div>
+            <div class="eq-note" id="eqNote"></div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-h"><h2>Feeds</h2><span class="right">last check <span id="feedAge" class="num"></span></span></div>
+          <div class="vh" id="venues"></div>
+          <div class="vnote" id="vnote"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-learn" class="view">
+    <div id="learn-root">
+      <header class="learn-head">
+        <h1>Money Maker — how today’s tickets moved</h1>
+        <p>Replay of this session’s real quiet and fired decisions. Packets are live intake. Outcomes are the blotter, not a demo.</p>
+      </header>
+      <svg viewBox="0 0 1180 880" role="img" aria-label="Animated data flow: five live feeds and the learning core feed the Money Maker score, which either stays quiet or writes a capped buy-sell or yes-no ticket through signing, fill, flatten-watch and settlement into the desk dashboard, whose outcomes flow back into the learning core.">
+<defs>
+  <marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <linearGradient id="eqfill" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#2ED47A" stop-opacity=".35"/>
+    <stop offset="100%" stop-color="#2ED47A" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="9"/>
+  </filter>
+</defs>
+
+<!-- ============ LEARNING CORE ============ -->
+<g id="brain" class="stage g-brain">
+  <rect class="glow" x="700" y="24" width="456" height="266" rx="16" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="700" y="24" width="456" height="266" rx="16"/>
+  <text class="th" x="724" y="56">Learning core</text>
+  <text class="ts" x="724" y="75">every settled trade retunes the weights and the gate</text>
+
+  <!-- brain illustration -->
+  <g transform="translate(724,100)">
+    <path d="M52 4 C30 -2 8 8 6 26 C-6 34 -4 56 10 62 C14 78 36 84 56 78 C76 84 98 78 102 62 C116 56 118 34 106 26 C104 8 82 -2 60 4 Z"
+          fill="#2A2551" stroke="#9B8CFF" stroke-width="1.4"/>
+    <path d="M56 4 L56 78" stroke="#9B8CFF" stroke-width="1.2" opacity=".6" fill="none"/>
+    <path d="M30 20 C16 30 32 38 18 50" stroke="#B9AEFF" stroke-width="1.2" opacity=".7" fill="none"/>
+    <path d="M82 20 C96 30 80 38 94 50" stroke="#B9AEFF" stroke-width="1.2" opacity=".7" fill="none"/>
+    <path d="M22 62 C36 70 48 68 52 58" stroke="#B9AEFF" stroke-width="1.2" opacity=".7" fill="none"/>
+    <path d="M90 62 C76 70 64 68 60 58" stroke="#B9AEFF" stroke-width="1.2" opacity=".7" fill="none"/>
+    <circle id="syn1" cx="30" cy="34" r="3" fill="#C9BFFF"/>
+    <circle id="syn2" cx="80" cy="46" r="3" fill="#C9BFFF"/>
+    <circle id="syn3" cx="56" cy="66" r="3" fill="#C9BFFF"/>
+  </g>
+
+  <!-- weights -->
+  <text class="lbl" x="856" y="104">signal weights</text>
+  <g id="weights"></g>
+
+  <!-- learning stats -->
+  <line x1="724" y1="236" x2="1132" y2="236" stroke="#22334C"/>
+  <text class="lbl" x="724" y="256">trades learned</text>
+  <text id="k-trades" class="tn" x="724" y="276">—</text>
+  <text class="lbl" x="856" y="256">hit rate</text>
+  <text id="k-hit" class="tn" x="856" y="276">—</text>
+  <text class="lbl" x="988" y="256">edge gate</text>
+  <text id="k-gate" class="tn" x="988" y="276">6.0%</text>
+</g>
+
+<!-- ============ FEEDS ============ -->
+<text class="lbl" x="24" y="222">live feeds</text>
+
+<g id="s1" class="stage g-signal">
+  <rect class="glow" x="24" y="240" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="240" width="224" height="76" rx="12"/>
+  <g transform="translate(40,254)">
+    <rect width="48" height="48" rx="10" fill="#12283F"/>
+    <g transform="translate(6,10)">
+      <path d="M4 22 C4 13 13 7 22 8 C29 9 34 14 34 20 C34 27 26 31 18 31 C9 31 4 28 4 22 Z" fill="#5EB0F2"/>
+      <path d="M4 22 C6 28 12 31 18 31 C26 31 34 27 34 20 C28 26 14 27 4 22 Z" fill="#A9D6F8"/>
+      <path d="M34 16 C38 9 40 8 42 6 C42 12 40 18 34 22 Z" fill="#5EB0F2"/>
+      <circle cx="13" cy="17" r="2" fill="#0B1220"/>
+      <rect x="17" y="0" width="4" height="6" rx="1" fill="#3FBF7F" transform="rotate(-18 19 3)"/>
+      <rect x="22" y="-1" width="4" height="6" rx="1" fill="#3FBF7F"/>
+      <rect x="27" y="0" width="4" height="6" rx="1" fill="#3FBF7F" transform="rotate(18 29 3)"/>
+    </g>
+  </g>
+  <text class="th" x="100" y="272">Unusual Whales</text>
+  <text id="f-whales" class="ts" x="100" y="291">options flow, big-money prints</text>
+</g>
+
+<g id="s2" class="stage g-signal">
+  <rect class="glow" x="24" y="330" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="330" width="224" height="76" rx="12"/>
+  <g transform="translate(40,344)">
+    <rect width="48" height="48" rx="10" fill="#0E1622"/>
+    <path d="M14 14 L34 34 M34 14 L14 34" stroke="#EDF3FA" stroke-width="3.4" stroke-linecap="round"/>
+    <circle cx="38" cy="12" r="8" fill="#F0A63C"/>
+    <path d="M38 8 L38 12 L41 14" stroke="#3A2405" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  </g>
+  <text class="th" x="100" y="362">X news + lag</text>
+  <text id="f-news" class="ts" x="100" y="381">headline timing vs book reaction</text>
+</g>
+
+<g id="s3" class="stage g-signal">
+  <rect class="glow" x="24" y="420" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="420" width="224" height="76" rx="12"/>
+  <g transform="translate(40,434)">
+    <rect width="48" height="48" rx="10" fill="#2A0F12"/>
+    <rect x="7" y="12" width="34" height="20" rx="3" fill="#0B1220" stroke="#E4353F" stroke-width="1.4"/>
+    <text x="14" y="27" font-family="ui-monospace,monospace" font-size="11" fill="#E4353F">21</text>
+    <text x="27" y="27" font-family="ui-monospace,monospace" font-size="11" fill="#EDF3FA">17</text>
+    <rect x="22" y="32" width="4" height="8" fill="#E4353F"/>
+    <rect x="15" y="39" width="18" height="3" rx="1.5" fill="#E4353F"/>
+  </g>
+  <text class="th" x="100" y="452">ESPN</text>
+  <text id="f-espn" class="ts" x="100" y="471">live game state, score and clock</text>
+</g>
+
+<g id="s4" class="stage g-signal">
+  <rect class="glow" x="24" y="510" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="510" width="224" height="76" rx="12"/>
+  <g transform="translate(40,524)">
+    <rect width="48" height="48" rx="10" fill="#101C3A"/>
+    <rect x="8" y="16" width="26" height="20" rx="4" fill="#2C5BE8"/>
+    <rect x="8" y="16" width="26" height="6" rx="3" fill="#4B79F5"/>
+    <circle cx="32" cy="26" r="3" fill="#1B2E63"/>
+    <circle cx="31" cy="14" r="9" fill="#F7A722" stroke="#0B1220" stroke-width="1"/>
+    <text x="31" y="18.5" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#3A2405">B</text>
+    <path d="M8 42 L14 38 L20 41 L26 33 L32 36 L40 28" stroke="#2ED47A" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text class="th" x="100" y="542">Crypto feeds</text>
+  <text id="f-crypto" class="ts" x="100" y="561">spot marks + perp funding</text>
+</g>
+
+<g id="s5" class="stage g-signal">
+  <rect class="glow" x="24" y="600" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="600" width="224" height="76" rx="12"/>
+  <g transform="translate(40,614)">
+    <rect width="48" height="48" rx="10" fill="#0D2A24"/>
+    <rect x="8" y="10" width="14" height="4" rx="2" fill="#2ED47A"/>
+    <rect x="8" y="17" width="10" height="4" rx="2" fill="#2ED47A" opacity=".7"/>
+    <rect x="8" y="24" width="13" height="4" rx="2" fill="#2ED47A" opacity=".5"/>
+    <rect x="26" y="10" width="12" height="4" rx="2" fill="#FF5C6C" opacity=".5"/>
+    <rect x="26" y="17" width="9" height="4" rx="2" fill="#FF5C6C" opacity=".7"/>
+    <rect x="26" y="24" width="14" height="4" rx="2" fill="#FF5C6C"/>
+    <rect x="8" y="33" width="32" height="7" rx="3" fill="#17402F"/>
+    <text x="24" y="38.6" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="#8FE9BC">BID / ASK</text>
+  </g>
+  <text class="th" x="100" y="632">Live books</text>
+  <text id="f-books" class="ts" x="100" y="651">Kalshi + Polymarket US + Onchain</text>
+</g>
+
+<!-- feed particles -->
+<g id="packets">
+  <circle class="pk" id="pk0" r="5" fill="#4FA3FF"/>
+  <circle class="pk" id="pk1" r="5" fill="#4FA3FF"/>
+  <circle class="pk" id="pk2" r="5" fill="#4FA3FF"/>
+  <circle class="pk" id="pk3" r="5" fill="#4FA3FF"/>
+  <circle class="pk" id="pk4" r="5" fill="#4FA3FF"/>
+</g>
+
+<!-- feed -> score -->
+<line x1="252" y1="278" x2="294" y2="440" class="arr" marker-end="url(#ah)"/>
+<line x1="252" y1="368" x2="294" y2="452" class="arr" marker-end="url(#ah)"/>
+<line x1="252" y1="458" x2="294" y2="464" class="arr" marker-end="url(#ah)"/>
+<line x1="252" y1="548" x2="294" y2="476" class="arr" marker-end="url(#ah)"/>
+<line x1="252" y1="638" x2="294" y2="488" class="arr" marker-end="url(#ah)"/>
+
+<!-- ============ SCORE ============ -->
+<g id="mm" class="stage g-brain">
+  <rect class="glow" x="300" y="380" width="250" height="170" rx="14" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="300" y="380" width="250" height="170" rx="14"/>
+  <text class="th" x="320" y="408">Money maker score</text>
+  <text class="ts" x="320" y="426">model price vs the live book</text>
+  <text id="edge-val" class="big" x="320" y="466">0.0%</text>
+  <text class="lbl" x="392" y="466">edge</text>
+  <rect class="bar-bg" x="320" y="484" width="210" height="10" rx="5"/>
+  <rect id="edge-bar" class="bar" x="320" y="484" width="0" height="10" rx="5" fill="#9B8CFF"/>
+  <line id="gate-tick" x1="404" y1="479" x2="404" y2="499" stroke="#FF5C6C" stroke-width="2"/>
+  <text class="lbl" x="320" y="514">0%</text>
+  <text id="gate-lbl" class="lbl" x="404" y="514" text-anchor="middle">gate</text>
+  <text class="lbl" x="530" y="514" text-anchor="end">15%</text>
+  <text id="verdict" class="ts" x="320" y="536">waiting on the next scan</text>
+</g>
+
+<!-- score -> quiet -->
+<line x1="425" y1="554" x2="425" y2="596" class="arr" marker-end="url(#ah)"/>
+<g id="quiet" class="stage g-signal">
+  <rect class="card-2" x="300" y="600" width="250" height="64" rx="12"/>
+  <circle cx="326" cy="632" r="9" fill="#22334C"/>
+  <rect x="322" y="628" width="8" height="8" rx="1.5" fill="#8FA3BC"/>
+  <text class="th" x="346" y="627">Stand down</text>
+  <text class="ts" x="346" y="645">edge under the gate, no ticket</text>
+</g>
+
+<!-- score -> bot -->
+<path d="M554 438 C580 428 586 412 600 400" class="arr" marker-end="url(#ah)"/>
+
+<!-- ============ EXECUTION ============ -->
+<g id="bot" class="stage g-exec">
+  <rect class="glow" x="604" y="316" width="252" height="152" rx="14" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="316" width="252" height="152" rx="14"/>
+  <text class="th" x="624" y="344">Trading bot</text>
+  <text class="ts" x="624" y="362">picks the side, caps the size</text>
+  <rect x="624" y="374" width="212" height="76" rx="10" fill="#0E1826" stroke="#22334C"/>
+  <text id="tk-market" class="ts" x="638" y="394">no open ticket</text>
+  <rect id="tk-badge" x="638" y="404" width="66" height="28" rx="7" fill="#22334C"/>
+  <text id="tk-side" class="tn" x="671" y="422" text-anchor="middle" fill="#8FA3BC">—</text>
+  <text id="tk-size" class="tn" x="716" y="422">$0</text>
+  <text id="tk-note" class="lbl" x="638" y="444">max pay $1.00</text>
+</g>
+<line x1="730" y1="468" x2="730" y2="486" class="arr" marker-end="url(#ah)"/>
+
+<g id="post" class="stage g-exec">
+  <rect class="glow" x="604" y="490" width="252" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="490" width="252" height="76" rx="12"/>
+  <g transform="translate(624,506)">
+    <rect y="10" width="26" height="20" rx="4" fill="#3B2A0C" stroke="#F0A63C" stroke-width="1.2"/>
+    <path id="shackle" d="M8 10 V7 a5 5 0 0 1 10 0 V10" fill="none" stroke="#F0A63C" stroke-width="2"/>
+    <circle cx="13" cy="20" r="2.6" fill="#F0A63C"/>
+  </g>
+  <text class="th" x="664" y="522">Signed post</text>
+  <text class="ts" x="664" y="540">venue live, under cap, key-signed order</text>
+</g>
+<line x1="730" y1="566" x2="730" y2="584" class="arr" marker-end="url(#ah)"/>
+
+<g id="fill" class="stage g-exec">
+  <rect class="glow" x="604" y="588" width="252" height="72" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="588" width="252" height="72" rx="12"/>
+  <text class="th" x="624" y="614">Fill</text>
+  <text id="fill-note" class="ts" x="624" y="632">waiting for the book</text>
+  <rect class="bar-bg" x="624" y="640" width="212" height="7" rx="3.5"/>
+  <rect id="fill-bar" class="bar" x="624" y="640" width="0" height="7" rx="3.5" fill="#F0A63C"/>
+</g>
+<line x1="730" y1="660" x2="730" y2="678" class="arr" marker-end="url(#ah)"/>
+
+<g id="watch" class="stage g-exec">
+  <rect class="glow" x="604" y="682" width="252" height="72" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="682" width="252" height="72" rx="12"/>
+  <g transform="translate(624,700)">
+    <path d="M0 12 C6 4 18 4 24 12 C18 20 6 20 0 12 Z" fill="none" stroke="#F0A63C" stroke-width="1.4"/>
+    <circle cx="12" cy="12" r="4" fill="#F0A63C"/>
+  </g>
+  <text class="th" x="660" y="712">Flatten-watch</text>
+  <text class="ts" x="660" y="730">exit triggers armed on the open position</text>
+</g>
+<line x1="730" y1="754" x2="730" y2="772" class="arr" marker-end="url(#ah)"/>
+
+<g id="settle" class="stage g-out">
+  <rect class="glow" x="604" y="776" width="252" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="776" width="252" height="76" rx="12"/>
+  <text class="th" x="624" y="804">Settle</text>
+  <text class="ts" x="624" y="822">market resolves, PnL is booked</text>
+  <rect id="res-badge" x="756" y="792" width="82" height="30" rx="8" fill="#22334C"/>
+  <text id="res-text" class="tn" x="797" y="812" text-anchor="middle" fill="#8FA3BC">—</text>
+</g>
+
+<!-- settle -> dashboard -->
+<path d="M860 814 L886 814" class="arr" marker-end="url(#ah)"/>
+
+<!-- ============ DASHBOARD ============ -->
+<g id="desk" class="stage g-out">
+  <rect class="glow" x="890" y="316" width="266" height="540" rx="14" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="890" y="316" width="266" height="540" rx="14"/>
+  <text class="th" x="910" y="344">Desk dashboard</text>
+  <text class="ts" x="910" y="362">every ticket, position and settlement</text>
+
+  <text class="lbl" x="910" y="388">equity curve</text>
+  <rect x="910" y="396" width="226" height="86" rx="8" fill="#0E1826" stroke="#22334C"/>
+  <path id="eq-area" d="" fill="url(#eqfill)"/>
+  <polyline id="eq-line" points="" fill="none" stroke="#2ED47A" stroke-width="1.8" stroke-linejoin="round"/>
+
+  <text class="lbl" x="910" y="508">net PnL</text>
+  <text id="k-pnl" class="tn" x="910" y="528">$0</text>
+  <text class="lbl" x="1000" y="508">win rate</text>
+  <text id="k-win" class="tn" x="1000" y="528">—</text>
+  <text class="lbl" x="1080" y="508">open</text>
+  <text id="k-open" class="tn" x="1080" y="528">0</text>
+
+  <line x1="910" y1="546" x2="1136" y2="546" stroke="#22334C"/>
+  <text class="lbl" x="910" y="566">blotter</text>
+  <g id="rows"></g>
+  <text id="blot-empty" class="ts" x="910" y="596">no trades yet, the desk is flat</text>
+</g>
+
+<!-- dashboard -> brain -->
+<path id="ret" d="M1023 312 L1023 294" class="flow" marker-end="url(#ah)"/>
+<text class="lbl" x="1036" y="306">outcomes train the brain</text>
+
+<!-- brain -> score -->
+<path id="down" d="M760 292 C640 330 520 330 432 374" class="flow" marker-end="url(#ah)"/>
+<text class="lbl" x="580" y="336" text-anchor="middle">retuned weights + gate</text>
+
+<!-- legend -->
+<g>
+  <rect x="24" y="712" width="12" height="12" rx="3" fill="#4FA3FF"/>
+  <text class="ts" x="44" y="722">live data in</text>
+  <rect x="24" y="736" width="12" height="12" rx="3" fill="#9B8CFF"/>
+  <text class="ts" x="44" y="746">decision and learning</text>
+  <rect x="24" y="760" width="12" height="12" rx="3" fill="#F0A63C"/>
+  <text class="ts" x="44" y="770">execution</text>
+  <rect x="24" y="784" width="12" height="12" rx="3" fill="#2ED47A"/>
+  <text class="ts" x="44" y="794">settled outcome</text>
+</g>
+
+<!-- travelling token -->
+<g id="token" opacity="0" style="transform:translate(425px,465px)">
+  <circle r="11" fill="#F0A63C" opacity=".25"/>
+  <circle r="6.5" fill="#F0A63C" stroke="#3A2405" stroke-width="1"/>
+</g>
+</svg>
+      <div class="ctl">
+        <button type="button" id="play">Pause</button>
+        <button type="button" id="next">Next step</button>
+        <button type="button" id="reset">Replay from start of day</button>
+        <span>Speed</span>
+        <input type="range" id="spd" min="1" max="10" step="1" value="5" aria-label="Animation speed">
+      </div>
+      <div class="status">
+        <span class="pill" id="badge">scan</span>
+        <span id="status">waiting on live decisions</span>
+      </div>
+      <p class="learn-note" id="learn-note"></p>
+    </div>
+  </div>
+
+<script src="/app.js"></script>
+</body>
+</html>

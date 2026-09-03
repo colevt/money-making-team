@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk</title>
+<style>
+:root{
+  --ink:#0B0F14;
+  --panel:#131A22;
+  --panel-2:#182029;
+  --rule:#26313D;
+  --rule-soft:#1D262F;
+  --text:#C9D4DE;
+  --chalk:#F2F6F9;
+  --muted:#6B7C8C;
+  --bulb:#FFB627;
+  --bulb-dim:#8A6316;
+  --won:#3FBF7F;
+  --lost:#E5484D;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --num:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+.wrap{max-width:1180px;margin:0 auto;padding:20px 20px 60px}
+
+/* ---------- top bar ---------- */
+.bar{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding-bottom:14px;border-bottom:1px solid var(--rule);
+}
+.mark{font-size:19px;font-weight:600;color:var(--chalk);letter-spacing:.02em}
+.venues{color:var(--muted);font-size:13px}
+.clock{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+.bulb{width:7px;height:7px;border-radius:50%;background:var(--bulb);box-shadow:0 0 9px var(--bulb-dim)}
+@media (prefers-reduced-motion:no-preference){
+  .bulb{animation:breathe 2.6s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:1}50%{opacity:.35}}
+}
+
+/* ---------- hero scoreboard ---------- */
+.board{
+  margin-top:22px;
+  border:1px solid var(--rule);
+  border-left:3px solid var(--bulb);
+  background:
+    linear-gradient(180deg,rgba(255,182,39,.045),rgba(255,182,39,0) 55%),
+    var(--panel);
+  display:grid;grid-template-columns:1.15fr .85fr;
+}
+.board-l{padding:22px 26px}
+.board-r{padding:22px 26px;border-left:1px solid var(--rule-soft)}
+.board-tag{font-size:12px;color:var(--bulb);letter-spacing:.06em}
+
+.score{display:flex;align-items:flex-end;gap:16px;margin:14px 0 6px}
+.team{display:flex;flex-direction:column}
+.team-abbr{font-size:13px;color:var(--muted);letter-spacing:.08em}
+.team-runs{
+  font-family:var(--num);font-size:56px;line-height:.92;font-weight:600;
+  color:var(--chalk);
+}
+.team.lead .team-runs{color:var(--bulb)}
+.dash{font-family:var(--num);font-size:34px;color:var(--rule);padding-bottom:6px}
+.inning{margin-left:8px;padding-bottom:9px;font-size:13px;color:var(--muted)}
+.mktname{font-size:13px;color:var(--muted);margin-top:2px}
+
+.ticketline{margin-top:18px;padding-top:16px;border-top:1px solid var(--rule-soft);font-size:13.5px}
+.ticketline b{color:var(--chalk);font-weight:600}
+.side{
+  display:inline-block;padding:1px 7px;border:1px solid var(--bulb);
+  color:var(--bulb);font-size:11px;letter-spacing:.06em;border-radius:2px;
+  vertical-align:1px;margin-right:6px;
+}
+
+.markrow{display:flex;gap:28px;margin-top:16px}
+.markcell{display:flex;flex-direction:column;gap:3px}
+.markcell span{font-size:12px;color:var(--muted)}
+.markcell strong{font-family:var(--num);font-size:19px;font-weight:600;color:var(--chalk)}
+.down{color:var(--lost)}
+.up{color:var(--won)}
+
+.spark{margin-top:14px}
+.spark svg{display:block;width:100%;height:58px;overflow:visible}
+.spark-cap{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:5px}
+
+/* ---------- stat strip ---------- */
+.strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);border-top:0}
+.cell{background:var(--panel);padding:16px 18px}
+.cell h3{margin:0;font-size:12px;font-weight:400;color:var(--muted)}
+.big{font-family:var(--num);font-size:27px;font-weight:600;color:var(--chalk);margin-top:6px;line-height:1.1}
+.sub{font-size:12px;color:var(--muted);margin-top:4px}
+.big.pos{color:var(--won)}
+.big.neg{color:var(--lost)}
+
+/* record bars */
+.wl{display:flex;gap:3px;margin-top:9px}
+.wl i{height:5px;flex:1;border-radius:1px;background:var(--lost)}
+.wl i.w{background:var(--won)}
+
+/* ---------- two column body ---------- */
+.body{display:grid;grid-template-columns:1.55fr 1fr;gap:18px;margin-top:18px;align-items:start}
+.card{border:1px solid var(--rule);background:var(--panel)}
+.card-h{
+  display:flex;align-items:baseline;gap:10px;
+  padding:13px 18px;border-bottom:1px solid var(--rule-soft);
+}
+.card-h h2{margin:0;font-size:14px;font-weight:600;color:var(--chalk)}
+.card-h .count{font-size:12px;color:var(--muted)}
+.card-h .right{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* blotter */
+table{width:100%;border-collapse:collapse}
+th{
+  text-align:left;font-size:11.5px;font-weight:400;color:var(--muted);
+  padding:9px 10px;border-bottom:1px solid var(--rule-soft);white-space:nowrap;
+}
+td{padding:10px;border-bottom:1px solid var(--rule-soft);font-size:13px;vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--panel-2)}
+.t-time{color:var(--muted);white-space:nowrap}
+.t-mkt{color:var(--chalk)}
+.t-venue{font-size:11.5px;color:var(--muted);display:block;margin-top:2px}
+.r{text-align:right;white-space:nowrap}
+.tag{font-size:11px;letter-spacing:.05em;padding:2px 7px;border-radius:2px;border:1px solid}
+.tag.won{color:var(--won);border-color:rgba(63,191,127,.4)}
+.tag.lost{color:var(--lost);border-color:rgba(229,72,77,.4)}
+.tag.open{color:var(--bulb);border-color:rgba(255,182,39,.45)}
+.edge{font-size:11.5px;color:var(--muted);display:block;margin-top:2px}
+
+/* equity */
+.eq{padding:16px 18px}
+.eq svg{display:block;width:100%;height:96px;overflow:visible}
+.eq-note{font-size:12px;color:var(--muted);margin-top:10px}
+
+/* venue health */
+.vh{padding:4px 0}
+.vrow{display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid var(--rule-soft)}
+.vrow:last-child{border-bottom:0}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dot.ok{background:var(--won)}
+.dot.warn{background:var(--bulb)}
+.dot.bad{background:var(--lost)}
+.vname{color:var(--chalk);font-size:13px}
+.vstate{margin-left:auto;font-size:12px;color:var(--muted);font-family:var(--num)}
+.vnote{font-size:12px;color:var(--muted);padding:11px 18px 14px;border-top:1px solid var(--rule-soft)}
+.vnote code{font-family:var(--num);color:var(--text)}
+
+.empty{padding:26px 18px;color:var(--muted);font-size:13px}
+
+@media (max-width:900px){
+  .board{grid-template-columns:1fr}
+  .board-r{border-left:0;border-top:1px solid var(--rule-soft)}
+  .strip{grid-template-columns:repeat(2,1fr)}
+  .body{grid-template-columns:1fr}
+  .team-runs{font-size:44px}
+}
+:focus-visible{outline:2px solid var(--bulb);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="bar">
+    <div class="mark">Desk</div>
+    <div class="venues">Polymarket US &nbsp;·&nbsp; Kalshi</div>
+    <div class="clock"><span class="bulb"></span><span id="clock" class="num">21:50:56 MT</span></div>
+  </header>
+
+  <!-- HERO: the live game driving the open position -->
+  <section class="board" id="hero">
+    <div class="board-l">
+      <div class="board-tag">Live position</div>
+      <div class="score" id="score"></div>
+      <div class="mktname" id="mktname"></div>
+
+      <div class="ticketline" id="ticketline"></div>
+
+      <div class="markrow" id="markrow"></div>
+    </div>
+
+    <div class="board-r">
+      <div class="board-tag" style="color:var(--muted)">Mark since entry</div>
+      <div class="spark" id="spark"></div>
+      <div class="spark-cap">
+        <span id="sparkFrom"></span>
+        <span id="sparkNow"></span>
+      </div>
+      <div class="eq-note" id="riskNote"></div>
+    </div>
+  </section>
+
+  <!-- STAT STRIP -->
+  <section class="strip" id="strip"></section>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <section class="card">
+      <div class="card-h">
+        <h2>Blotter</h2>
+        <span class="count" id="blotterCount"></span>
+        <span class="right">entry vs. settle</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Market</th>
+              <th class="r">Side</th>
+              <th class="r">Entry</th>
+              <th class="r">Size</th>
+              <th class="r">Result</th>
+              <th class="r">P/L</th>
+            </tr>
+          </thead>
+          <tbody id="blotter"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div style="display:grid;gap:18px">
+
+      <section class="card">
+        <div class="card-h"><h2>Equity</h2><span class="right" id="eqRange"></span></div>
+        <div class="eq">
+          <div id="equity"></div>
+          <div class="eq-note" id="eqNote"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><h2>Feeds</h2><span class="right">last check <span id="feedAge" class="num"></span></span></div>
+        <div class="vh" id="venues"></div>
+        <div class="vnote" id="vnote"></div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------
+   ONE STATE OBJECT DRIVES THE WHOLE PAGE.
+   Replace `state` with a fetch() from your backend and call render().
+   Nothing below reads from anywhere else.
+------------------------------------------------------------------ */
+const state = {
+  clock: "21:50:56 MT",
+
+  open: {
+    venue: "Polymarket US",
+    marketId: "aec-mlb-phi-az-2026-09-01",
+    ticket: "554687",
+    away: { abbr: "PHI", name: "Philadelphia", runs: 2 },
+    home: { abbr: "AZ",  name: "Arizona",      runs: 0 },
+    period: "Mid 3rd",
+    side: "YES",
+    entry: 72.5,          // cents
+    mark: 70.8,           // cents
+    size: 0.72,           // dollars at risk
+    // mark history since fill, in cents
+    marks: [72.5,72.1,73.4,74.0,73.2,71.9,71.4,72.0,70.9,70.8]
+  },
+
+  session: {
+    realized: 0.20,
+    fills: 7,
+    openCount: 1,
+    // W/L in order, most recent last
+    results: ["L","L","L","W","L","L","L"],
+    // cumulative realized after each settled ticket
+    equity: [0,-0.10,-0.21,-0.29,-0.015,0.06,0.13,0.20]
+  },
+
+  cash: [
+    { venue:"Polymarket US", spendable:4.55, inPlay:0.72 },
+    { venue:"Kalshi",        spendable:20.00, inPlay:0.00 }
+  ],
+
+  blotter: [
+    { time:"20:28", venue:"Polymarket US", market:"Phillies vs Diamondbacks", side:"YES", entry:72.5, size:0.72, result:"OPEN", pl:null,    settle:null },
+    { time:"19:42", venue:"Polymarket US", market:"Brewers vs Cubs",          side:"YES", entry:71.5, size:0.71, result:"WON",  pl:0.275,  settle:100 },
+    { time:"19:05", venue:"Polymarket US", market:"Padres vs Giants",         side:"YES", entry:68.0, size:0.68, result:"LOST", pl:-0.68,  settle:0 },
+    { time:"18:31", venue:"Kalshi",        market:"Yankees vs Red Sox",       side:"NO",  entry:55.0, size:0.55, result:"LOST", pl:-0.55,  settle:0 },
+    { time:"17:58", venue:"Polymarket US", market:"Astros vs Mariners",       side:"YES", entry:74.0, size:0.74, result:"LOST", pl:-0.74,  settle:0 },
+    { time:"17:12", venue:"Polymarket US", market:"Dodgers vs Rockies",       side:"YES", entry:81.5, size:0.82, result:"LOST", pl:-0.82,  settle:0 },
+    { time:"16:40", venue:"Kalshi",        market:"Braves vs Mets",           side:"NO",  entry:49.5, size:0.50, result:"LOST", pl:-0.50,  settle:0 }
+  ],
+
+  feeds: [
+    { name:"Polymarket US", state:"ok",   detail:"keys live · 0 throttles" },
+    { name:"Kalshi",        state:"ok",   detail:"signed · 0 throttles"    },
+    { name:"Score feed",    state:"ok",   detail:"4s lag"                  },
+    { name:"Global CLOB",   state:"bad",  detail:"403 geo"                 }
+  ],
+  feedAge: "3s",
+  feedNote: "Global CLOB is blocked from this region and is not a trading account. Leftover pUSD $0.00. No order path runs through it."
+};
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const money = n => (n<0?"-":"")+"$"+Math.abs(n).toFixed(2);
+const signed = n => (n>0?"+":n<0?"-":"")+"$"+Math.abs(n).toFixed(2);
+const cents = n => n.toFixed(1)+"¢";
+
+function polyline(vals, w, h, pad){
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max-min) || 1;
+  return vals.map((v,i)=>{
+    const x = pad + (i/(vals.length-1)) * (w-pad*2);
+    const y = pad + (1-(v-min)/span) * (h-pad*2);
+    return [x,y];
+  });
+}
+
+/* ---------- hero ---------- */
+function renderHero(){
+  const o = state.open;
+  if(!o){ $("hero").innerHTML = '<div class="empty">No open position. The desk is flat.</div>'; return; }
+
+  const awayLead = o.away.runs > o.home.runs;
+  $("score").innerHTML = `
+    <div class="team ${awayLead?"lead":""}">
+      <div class="team-abbr">${o.away.abbr}</div>
+      <div class="team-runs">${o.away.runs}</div>
+    </div>
+    <div class="dash">–</div>
+    <div class="team ${!awayLead?"lead":""}">
+      <div class="team-abbr">${o.home.abbr}</div>
+      <div class="team-runs">${o.home.runs}</div>
+    </div>
+    <div class="inning">${o.period}</div>`;
+
+  $("mktname").textContent = `${o.away.name} at ${o.home.name} · ${o.venue} · ticket ${o.ticket}`;
+
+  $("ticketline").innerHTML =
+    `<span class="side">${o.side}</span> filled at <b>${cents(o.entry)}</b>, ${money(o.size)} at risk`;
+
+  const drift = o.mark - o.entry;
+  const unreal = (o.size/(o.entry/100)) * ((o.mark-o.entry)/100);
+  $("markrow").innerHTML = `
+    <div class="markcell"><span>Mark</span><strong>${cents(o.mark)}</strong></div>
+    <div class="markcell"><span>Drift</span><strong class="${drift<0?"down":"up"}">${(drift>0?"+":"")+drift.toFixed(1)}¢</strong></div>
+    <div class="markcell"><span>Unrealized</span><strong class="${unreal<0?"down":"up"}">${signed(unreal)}</strong></div>`;
+
+  // sparkline
+  const w=340,h=58,pad=4;
+  const pts = polyline(o.marks,w,h,pad);
+  const d = pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const entryY = (()=>{
+    const min=Math.min(...o.marks), max=Math.max(...o.marks), span=(max-min)||1;
+    return pad + (1-(o.entry-min)/span)*(h-pad*2);
+  })();
+  const last = pts[pts.length-1];
+  $("spark").innerHTML = `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Mark price since fill">
+      <line x1="0" y1="${entryY.toFixed(1)}" x2="${w}" y2="${entryY.toFixed(1)}"
+            stroke="var(--rule)" stroke-width="1" stroke-dasharray="3 3"/>
+      <path d="${d}" fill="none" stroke="var(--bulb)" stroke-width="1.75"
+            stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3" fill="var(--bulb)"/>
+    </svg>`;
+  $("sparkFrom").textContent = `fill ${cents(o.entry)}`;
+  $("sparkNow").textContent  = `now ${cents(o.mark)}`;
+  $("riskNote").textContent  = "Dashed line is your fill. Below it you are behind the book.";
+}
+
+/* ---------- stat strip ---------- */
+function renderStrip(){
+  const s = state.session;
+  const wins = s.results.filter(r=>r==="W").length;
+  const losses = s.results.length - wins;
+  const rate = s.results.length ? Math.round(wins/s.results.length*100) : 0;
+  const totalCash = state.cash.reduce((a,c)=>a+c.spendable,0);
+  const totalPlay = state.cash.reduce((a,c)=>a+c.inPlay,0);
+  const avgStake = state.blotter.reduce((a,t)=>a+t.size,0)/state.blotter.length;
+
+  $("strip").innerHTML = `
+    <div class="cell">
+      <h3>Realized today</h3>
+      <div class="big ${s.realized>0?"pos":s.realized<0?"neg":""}">${signed(s.realized)}</div>
+      <div class="sub">${s.fills} fills · ${s.openCount} open</div>
+    </div>
+    <div class="cell">
+      <h3>Record</h3>
+      <div class="big">${wins}W ${losses}L</div>
+      <div class="wl">${s.results.map(r=>`<i class="${r==="W"?"w":""}"></i>`).join("")}</div>
+      <div class="sub">${rate}% hit rate on settled tickets</div>
+    </div>
+    <div class="cell">
+      <h3>Spendable</h3>
+      <div class="big">${money(totalCash)}</div>
+      <div class="sub">${money(totalPlay)} in play · avg stake ${money(avgStake)}</div>
+    </div>
+    <div class="cell">
+      <h3>Runway</h3>
+      <div class="big">${Math.floor(totalCash/avgStake)}</div>
+      <div class="sub">tickets left at this stake size</div>
+    </div>`;
+}
+
+/* ---------- blotter ---------- */
+function renderBlotter(){
+  $("blotterCount").textContent = state.blotter.length + " tickets";
+  $("blotter").innerHTML = state.blotter.map(t=>{
+    const cls = t.result==="WON"?"won":t.result==="LOST"?"lost":"open";
+    const plTxt = t.pl===null ? "—" : signed(t.pl);
+    const plCls = t.pl===null ? "" : t.pl>0?"up":"down";
+    const edge = t.settle===null ? "" :
+      `<span class="edge">${t.settle===100 ? "settled 100¢, paid "+cents(t.entry)
+                                           : "settled 0¢, paid "+cents(t.entry)}</span>`;
+    return `<tr>
+      <td class="t-time num">${t.time}</td>
+      <td><span class="t-mkt">${t.market}</span><span class="t-venue">${t.venue}</span></td>
+      <td class="r">${t.side}</td>
+      <td class="r num">${cents(t.entry)}</td>
+      <td class="r num">${money(t.size)}</td>
+      <td class="r"><span class="tag ${cls}">${t.result}</span>${edge}</td>
+      <td class="r num ${plCls}">${plTxt}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ---------- equity ---------- */
+function renderEquity(){
+  const e = state.session.equity;
+  const w=300,h=96,pad=8;
+  const pts = polyline(e,w,h,pad);
+  const d = pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const zeroY = (()=>{
+    const min=Math.min(...e), max=Math.max(...e), span=(max-min)||1;
+    return pad + (1-(0-min)/span)*(h-pad*2);
+  })();
+  const end = e[e.length-1];
+  const trough = Math.min(...e);
+  $("equity").innerHTML = `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Cumulative realized P/L">
+      <line x1="0" y1="${zeroY.toFixed(1)}" x2="${w}" y2="${zeroY.toFixed(1)}" stroke="var(--rule)" stroke-width="1"/>
+      <path d="${d}" fill="none" stroke="${end>=0?"var(--won)":"var(--lost)"}" stroke-width="1.75" stroke-linejoin="round"/>
+    </svg>`;
+  $("eqRange").textContent = "session";
+  $("eqNote").innerHTML = `Deepest drawdown ${money(trough)} before recovering. Line crosses zero on ticket ${e.indexOf(e.find(v=>v>0))}.`;
+}
+
+/* ---------- feeds ---------- */
+function renderFeeds(){
+  $("feedAge").textContent = state.feedAge;
+  $("venues").innerHTML = state.feeds.map(f=>`
+    <div class="vrow">
+      <span class="dot ${f.state}"></span>
+      <span class="vname">${f.name}</span>
+      <span class="vstate">${f.detail}</span>
+    </div>`).join("");
+  $("vnote").textContent = state.feedNote;
+}
+
+function render(){
+  $("clock").textContent = state.clock;
+  renderHero(); renderStrip(); renderBlotter(); renderEquity(); renderFeeds();
+}
+render();
+</script>
+</body>
+</html>

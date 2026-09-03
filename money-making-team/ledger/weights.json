@@ -1,0 +1,24 @@
+{
+  "gate_pct": 6.0,
+  "books": {
+    "sports": {
+      "uw": 0.12,
+      "x": 0.18,
+      "espn": 0.35,
+      "crypto": 0.05,
+      "book": 0.3
+    },
+    "crypto15m": {
+      "uw": 0.28,
+      "x": 0.12,
+      "espn": 0.05,
+      "crypto": 0.3,
+      "book": 0.25
+    }
+  },
+  "settled": {
+    "sports": 0,
+    "crypto15m": 0
+  },
+  "note": "Two books. ESPN does not train on crypto15m. Crypto does not train on sports. Gate stays 6% until 60 settled tickets on a book."
+}

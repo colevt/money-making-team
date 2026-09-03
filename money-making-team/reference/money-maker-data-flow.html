@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Money Maker — live data flow</title>
+<style>
+  :root{
+    --bg:#0B1220;
+    --panel:#121C2E;
+    --panel-2:#16233A;
+    --line:#22334C;
+    --stroke:#27384F;
+    --ink:#E8EEF7;
+    --mute:#8FA3BC;
+    --signal:#4FA3FF;
+    --brain:#9B8CFF;
+    --exec:#F0A63C;
+    --yes:#2ED47A;
+    --no:#FF5C6C;
+    --sans:"Inter","Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,"Roboto Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:
+      radial-gradient(1200px 700px at 70% -10%, #17263F 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink);font-family:var(--sans);padding:22px 22px 40px;
+  }
+  .wrap{max-width:1240px;margin:0 auto}
+  header{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  h1{font-size:19px;font-weight:600;letter-spacing:-.01em;margin:0}
+  header p{margin:0;color:var(--mute);font-size:13px}
+  svg{width:100%;height:auto;display:block}
+
+  .card{fill:var(--panel);stroke:var(--stroke);stroke-width:1}
+  .card-2{fill:var(--panel-2);stroke:var(--stroke);stroke-width:1}
+  .th{fill:var(--ink);font-size:14px;font-weight:600}
+  .ts{fill:var(--mute);font-size:11.5px}
+  .tn{fill:var(--ink);font-family:var(--mono);font-size:13px}
+  .big{fill:var(--ink);font-family:var(--mono);font-size:30px;font-weight:600;letter-spacing:-.02em}
+  .lbl{fill:var(--mute);font-family:var(--mono);font-size:10px}
+  .arr{stroke:#3C526E;stroke-width:1.4;fill:none}
+  .flow{stroke:#3C526E;stroke-width:1.4;fill:none;stroke-dasharray:6 5}
+  .flow.live{animation:march 1s linear infinite;stroke:var(--brain)}
+  @keyframes march{to{stroke-dashoffset:-22}}
+
+  .stage{transition:opacity .28s ease}
+  .stage.dim{opacity:.26}
+  .stage.hot .card,.stage.hot .card-2{stroke:currentColor;stroke-width:1.6}
+  .stage.hot .glow{opacity:.5}
+  .glow{opacity:0;transition:opacity .3s}
+  .g-signal{color:var(--signal)} .g-brain{color:var(--brain)}
+  .g-exec{color:var(--exec)} .g-out{color:var(--yes)}
+
+  #token{transition:transform .55s cubic-bezier(.4,0,.2,1),opacity .25s}
+  .pk{transition:transform .5s cubic-bezier(.4,0,.2,1),opacity .3s;opacity:0}
+
+  .bar-bg{fill:#1D2A40}
+  .bar{transition:width .5s ease}
+
+  .ctl{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+  button{
+    background:var(--panel-2);color:var(--ink);border:1px solid var(--stroke);
+    border-radius:8px;padding:8px 14px;font:500 13px var(--sans);cursor:pointer;
+  }
+  button:hover{background:#1D2C46}
+  button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+  input[type=range]{accent-color:var(--brain);flex:1;min-width:120px;max-width:260px}
+  .ctl span{color:var(--mute);font-size:12.5px}
+  .status{
+    margin-top:12px;background:var(--panel);border:1px solid var(--stroke);
+    border-radius:10px;padding:11px 14px;font-size:13.5px;display:flex;gap:12px;align-items:center
+  }
+  .pill{font-family:var(--mono);font-size:11.5px;padding:3px 9px;border-radius:20px;
+    background:#1E2C44;color:var(--brain);white-space:nowrap}
+  @media (prefers-reduced-motion: reduce){
+    .flow.live{animation:none}
+    #token,.pk{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Money Maker — how a trade moves through the desk</h1>
+  <p>Five live feeds score an edge, the bot writes a YES/NO or BUY/SELL ticket, and every settled outcome trains the brain.</p>
+</header>
+
+<svg viewBox="0 0 1180 880" role="img" aria-label="Animated data flow: five live feeds and the learning core feed the Money Maker score, which either stays quiet or writes a capped buy-sell or yes-no ticket through signing, fill, flatten-watch and settlement into the desk dashboard, whose outcomes flow back into the learning core.">
+<defs>
+  <marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <linearGradient id="eqfill" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#2ED47A" stop-opacity=".35"/>
+    <stop offset="100%" stop-color="#2ED47A" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="9"/>
+  </filter>
+</defs>
+
+<!-- ============ LEARNING CORE ============ -->
+<g id="brain" class="stage g-brain">
+  <rect class="glow" x="700" y="24" width="456" height="266" rx="16" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="700" y="24" width="456" height="266" rx="16"/>
+  <text class="th" x="724" y="56">Learning core</text>
+  <text class="ts" x="724" y="75">every settled trade retunes the weights and the gate</text>
+
+  <!-- brain illustration -->
+  <g transform="translate(724,100)">
+    <path d="M52 4 C30 -2 8 8 6 26 C-6 34 -4 56 10 62 C14 78 36 84 56 78 C76 84 98 78 102 62 C116 56 118 34 106 26 C104 8 82 -2 60 4 Z"
+          fill="#2A2551" stroke="#9B8CFF" stroke-width="1.4"/>
+    <path d="M56 4 L56 78" stroke="#9B8CFF" stroke-width="1.2" opacity=".6" fill="none"/>
+    <path d="M30 20 C16 30 32 38 18 50" stroke="#B9AEFF" stroke-width="1.2" opacity=".7" fill="none"/>
+    <path d="M82 20 C96 30 80 38 94 50" stroke="#B9AEFF" stroke-width="1.2" opacity=".7" fill="none"/>
+    <path d="M22 62 C36 70 48 68 52 58" stroke="#B9AEFF" stroke-width="1.2" opacity=".7" fill="none"/>
+    <path d="M90 62 C76 70 64 68 60 58" stroke="#B9AEFF" stroke-width="1.2" opacity=".7" fill="none"/>
+    <circle id="syn1" cx="30" cy="34" r="3" fill="#C9BFFF"/>
+    <circle id="syn2" cx="80" cy="46" r="3" fill="#C9BFFF"/>
+    <circle id="syn3" cx="56" cy="66" r="3" fill="#C9BFFF"/>
+  </g>
+
+  <!-- weights -->
+  <text class="lbl" x="856" y="104">signal weights</text>
+  <g id="weights"></g>
+
+  <!-- learning stats -->
+  <line x1="724" y1="236" x2="1132" y2="236" stroke="#22334C"/>
+  <text class="lbl" x="724" y="256">trades learned</text>
+  <text id="k-trades" class="tn" x="724" y="276">0</text>
+  <text class="lbl" x="856" y="256">hit rate</text>
+  <text id="k-hit" class="tn" x="856" y="276">52.0%</text>
+  <text class="lbl" x="988" y="256">edge gate</text>
+  <text id="k-gate" class="tn" x="988" y="276">6.0%</text>
+</g>
+
+<!-- ============ FEEDS ============ -->
+<text class="lbl" x="24" y="222">live feeds</text>
+
+<g id="s1" class="stage g-signal">
+  <rect class="glow" x="24" y="240" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="240" width="224" height="76" rx="12"/>
+  <g transform="translate(40,254)">
+    <rect width="48" height="48" rx="10" fill="#12283F"/>
+    <g transform="translate(6,10)">
+      <path d="M4 22 C4 13 13 7 22 8 C29 9 34 14 34 20 C34 27 26 31 18 31 C9 31 4 28 4 22 Z" fill="#5EB0F2"/>
+      <path d="M4 22 C6 28 12 31 18 31 C26 31 34 27 34 20 C28 26 14 27 4 22 Z" fill="#A9D6F8"/>
+      <path d="M34 16 C38 9 40 8 42 6 C42 12 40 18 34 22 Z" fill="#5EB0F2"/>
+      <circle cx="13" cy="17" r="2" fill="#0B1220"/>
+      <rect x="17" y="0" width="4" height="6" rx="1" fill="#3FBF7F" transform="rotate(-18 19 3)"/>
+      <rect x="22" y="-1" width="4" height="6" rx="1" fill="#3FBF7F"/>
+      <rect x="27" y="0" width="4" height="6" rx="1" fill="#3FBF7F" transform="rotate(18 29 3)"/>
+    </g>
+  </g>
+  <text class="th" x="100" y="272">Unusual Whales</text>
+  <text class="ts" x="100" y="291">options flow, big-money prints</text>
+</g>
+
+<g id="s2" class="stage g-signal">
+  <rect class="glow" x="24" y="330" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="330" width="224" height="76" rx="12"/>
+  <g transform="translate(40,344)">
+    <rect width="48" height="48" rx="10" fill="#0E1622"/>
+    <path d="M14 14 L34 34 M34 14 L14 34" stroke="#EDF3FA" stroke-width="3.4" stroke-linecap="round"/>
+    <circle cx="38" cy="12" r="8" fill="#F0A63C"/>
+    <path d="M38 8 L38 12 L41 14" stroke="#3A2405" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  </g>
+  <text class="th" x="100" y="362">X news + lag</text>
+  <text class="ts" x="100" y="381">headline timing vs book reaction</text>
+</g>
+
+<g id="s3" class="stage g-signal">
+  <rect class="glow" x="24" y="420" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="420" width="224" height="76" rx="12"/>
+  <g transform="translate(40,434)">
+    <rect width="48" height="48" rx="10" fill="#2A0F12"/>
+    <rect x="7" y="12" width="34" height="20" rx="3" fill="#0B1220" stroke="#E4353F" stroke-width="1.4"/>
+    <text x="14" y="27" font-family="ui-monospace,monospace" font-size="11" fill="#E4353F">21</text>
+    <text x="27" y="27" font-family="ui-monospace,monospace" font-size="11" fill="#EDF3FA">17</text>
+    <rect x="22" y="32" width="4" height="8" fill="#E4353F"/>
+    <rect x="15" y="39" width="18" height="3" rx="1.5" fill="#E4353F"/>
+  </g>
+  <text class="th" x="100" y="452">ESPN</text>
+  <text class="ts" x="100" y="471">live game state, score and clock</text>
+</g>
+
+<g id="s4" class="stage g-signal">
+  <rect class="glow" x="24" y="510" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="510" width="224" height="76" rx="12"/>
+  <g transform="translate(40,524)">
+    <rect width="48" height="48" rx="10" fill="#101C3A"/>
+    <rect x="8" y="16" width="26" height="20" rx="4" fill="#2C5BE8"/>
+    <rect x="8" y="16" width="26" height="6" rx="3" fill="#4B79F5"/>
+    <circle cx="32" cy="26" r="3" fill="#1B2E63"/>
+    <circle cx="31" cy="14" r="9" fill="#F7A722" stroke="#0B1220" stroke-width="1"/>
+    <text x="31" y="18.5" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#3A2405">B</text>
+    <path d="M8 42 L14 38 L20 41 L26 33 L32 36 L40 28" stroke="#2ED47A" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text class="th" x="100" y="542">Crypto feeds</text>
+  <text class="ts" x="100" y="561">spot marks + perp funding</text>
+</g>
+
+<g id="s5" class="stage g-signal">
+  <rect class="glow" x="24" y="600" width="224" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="24" y="600" width="224" height="76" rx="12"/>
+  <g transform="translate(40,614)">
+    <rect width="48" height="48" rx="10" fill="#0D2A24"/>
+    <rect x="8" y="10" width="14" height="4" rx="2" fill="#2ED47A"/>
+    <rect x="8" y="17" width="10" height="4" rx="2" fill="#2ED47A" opacity=".7"/>
+    <rect x="8" y="24" width="13" height="4" rx="2" fill="#2ED47A" opacity=".5"/>
+    <rect x="26" y="10" width="12" height="4" rx="2" fill="#FF5C6C" opacity=".5"/>
+    <rect x="26" y="17" width="9" height="4" rx="2" fill="#FF5C6C" opacity=".7"/>
+    <rect x="26" y="24" width="14" height="4" rx="2" fill="#FF5C6C"/>
+    <rect x="8" y="33" width="32" height="7" rx="3" fill="#17402F"/>
+    <text x="24" y="38.6" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="#8FE9BC">BID / ASK</text>
+  </g>
+  <text class="th" x="100" y="632">Live books</text>
+  <text class="ts" x="100" y="651">Kalshi + Polymarket US</text>
+</g>
+
+<!-- feed particles -->
+<g id="packets">
+  <circle class="pk" id="pk0" r="5" fill="#4FA3FF"/>
+  <circle class="pk" id="pk1" r="5" fill="#4FA3FF"/>
+  <circle class="pk" id="pk2" r="5" fill="#4FA3FF"/>
+  <circle class="pk" id="pk3" r="5" fill="#4FA3FF"/>
+  <circle class="pk" id="pk4" r="5" fill="#4FA3FF"/>
+</g>
+
+<!-- feed -> score -->
+<line x1="252" y1="278" x2="294" y2="440" class="arr" marker-end="url(#ah)"/>
+<line x1="252" y1="368" x2="294" y2="452" class="arr" marker-end="url(#ah)"/>
+<line x1="252" y1="458" x2="294" y2="464" class="arr" marker-end="url(#ah)"/>
+<line x1="252" y1="548" x2="294" y2="476" class="arr" marker-end="url(#ah)"/>
+<line x1="252" y1="638" x2="294" y2="488" class="arr" marker-end="url(#ah)"/>
+
+<!-- ============ SCORE ============ -->
+<g id="mm" class="stage g-brain">
+  <rect class="glow" x="300" y="380" width="250" height="170" rx="14" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="300" y="380" width="250" height="170" rx="14"/>
+  <text class="th" x="320" y="408">Money maker score</text>
+  <text class="ts" x="320" y="426">model price vs the live book</text>
+  <text id="edge-val" class="big" x="320" y="466">0.0%</text>
+  <text class="lbl" x="392" y="466">edge</text>
+  <rect class="bar-bg" x="320" y="484" width="210" height="10" rx="5"/>
+  <rect id="edge-bar" class="bar" x="320" y="484" width="0" height="10" rx="5" fill="#9B8CFF"/>
+  <line id="gate-tick" x1="404" y1="479" x2="404" y2="499" stroke="#FF5C6C" stroke-width="2"/>
+  <text class="lbl" x="320" y="514">0%</text>
+  <text id="gate-lbl" class="lbl" x="404" y="514" text-anchor="middle">gate</text>
+  <text class="lbl" x="530" y="514" text-anchor="end">15%</text>
+  <text id="verdict" class="ts" x="320" y="536">waiting on the next scan</text>
+</g>
+
+<!-- score -> quiet -->
+<line x1="425" y1="554" x2="425" y2="596" class="arr" marker-end="url(#ah)"/>
+<g id="quiet" class="stage g-signal">
+  <rect class="card-2" x="300" y="600" width="250" height="64" rx="12"/>
+  <circle cx="326" cy="632" r="9" fill="#22334C"/>
+  <rect x="322" y="628" width="8" height="8" rx="1.5" fill="#8FA3BC"/>
+  <text class="th" x="346" y="627">Stand down</text>
+  <text class="ts" x="346" y="645">edge under the gate, no ticket</text>
+</g>
+
+<!-- score -> bot -->
+<path d="M554 438 C580 428 586 412 600 400" class="arr" marker-end="url(#ah)"/>
+
+<!-- ============ EXECUTION ============ -->
+<g id="bot" class="stage g-exec">
+  <rect class="glow" x="604" y="316" width="252" height="152" rx="14" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="316" width="252" height="152" rx="14"/>
+  <text class="th" x="624" y="344">Trading bot</text>
+  <text class="ts" x="624" y="362">picks the side, caps the size</text>
+  <rect x="624" y="374" width="212" height="76" rx="10" fill="#0E1826" stroke="#22334C"/>
+  <text id="tk-market" class="ts" x="638" y="394">no open ticket</text>
+  <rect id="tk-badge" x="638" y="404" width="66" height="28" rx="7" fill="#22334C"/>
+  <text id="tk-side" class="tn" x="671" y="422" text-anchor="middle" fill="#8FA3BC">—</text>
+  <text id="tk-size" class="tn" x="716" y="422">$0</text>
+  <text id="tk-note" class="lbl" x="638" y="444">cap $250 per ticket</text>
+</g>
+<line x1="730" y1="468" x2="730" y2="486" class="arr" marker-end="url(#ah)"/>
+
+<g id="post" class="stage g-exec">
+  <rect class="glow" x="604" y="490" width="252" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="490" width="252" height="76" rx="12"/>
+  <g transform="translate(624,506)">
+    <rect y="10" width="26" height="20" rx="4" fill="#3B2A0C" stroke="#F0A63C" stroke-width="1.2"/>
+    <path id="shackle" d="M8 10 V7 a5 5 0 0 1 10 0 V10" fill="none" stroke="#F0A63C" stroke-width="2"/>
+    <circle cx="13" cy="20" r="2.6" fill="#F0A63C"/>
+  </g>
+  <text class="th" x="664" y="522">Signed post</text>
+  <text class="ts" x="664" y="540">venue live, under cap, key-signed order</text>
+</g>
+<line x1="730" y1="566" x2="730" y2="584" class="arr" marker-end="url(#ah)"/>
+
+<g id="fill" class="stage g-exec">
+  <rect class="glow" x="604" y="588" width="252" height="72" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="588" width="252" height="72" rx="12"/>
+  <text class="th" x="624" y="614">Fill</text>
+  <text id="fill-note" class="ts" x="624" y="632">waiting for the book</text>
+  <rect class="bar-bg" x="624" y="640" width="212" height="7" rx="3.5"/>
+  <rect id="fill-bar" class="bar" x="624" y="640" width="0" height="7" rx="3.5" fill="#F0A63C"/>
+</g>
+<line x1="730" y1="660" x2="730" y2="678" class="arr" marker-end="url(#ah)"/>
+
+<g id="watch" class="stage g-exec">
+  <rect class="glow" x="604" y="682" width="252" height="72" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="682" width="252" height="72" rx="12"/>
+  <g transform="translate(624,700)">
+    <path d="M0 12 C6 4 18 4 24 12 C18 20 6 20 0 12 Z" fill="none" stroke="#F0A63C" stroke-width="1.4"/>
+    <circle cx="12" cy="12" r="4" fill="#F0A63C"/>
+  </g>
+  <text class="th" x="660" y="712">Flatten-watch</text>
+  <text class="ts" x="660" y="730">exit triggers armed on the open position</text>
+</g>
+<line x1="730" y1="754" x2="730" y2="772" class="arr" marker-end="url(#ah)"/>
+
+<g id="settle" class="stage g-out">
+  <rect class="glow" x="604" y="776" width="252" height="76" rx="12" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="604" y="776" width="252" height="76" rx="12"/>
+  <text class="th" x="624" y="804">Settle</text>
+  <text class="ts" x="624" y="822">market resolves, PnL is booked</text>
+  <rect id="res-badge" x="756" y="792" width="82" height="30" rx="8" fill="#22334C"/>
+  <text id="res-text" class="tn" x="797" y="812" text-anchor="middle" fill="#8FA3BC">—</text>
+</g>
+
+<!-- settle -> dashboard -->
+<path d="M860 814 L886 814" class="arr" marker-end="url(#ah)"/>
+
+<!-- ============ DASHBOARD ============ -->
+<g id="desk" class="stage g-out">
+  <rect class="glow" x="890" y="316" width="266" height="540" rx="14" fill="currentColor" filter="url(#soft)"/>
+  <rect class="card" x="890" y="316" width="266" height="540" rx="14"/>
+  <text class="th" x="910" y="344">Desk dashboard</text>
+  <text class="ts" x="910" y="362">every ticket, position and settlement</text>
+
+  <text class="lbl" x="910" y="388">equity curve</text>
+  <rect x="910" y="396" width="226" height="86" rx="8" fill="#0E1826" stroke="#22334C"/>
+  <path id="eq-area" d="" fill="url(#eqfill)"/>
+  <polyline id="eq-line" points="" fill="none" stroke="#2ED47A" stroke-width="1.8" stroke-linejoin="round"/>
+
+  <text class="lbl" x="910" y="508">net PnL</text>
+  <text id="k-pnl" class="tn" x="910" y="528">$0</text>
+  <text class="lbl" x="1000" y="508">win rate</text>
+  <text id="k-win" class="tn" x="1000" y="528">—</text>
+  <text class="lbl" x="1080" y="508">open</text>
+  <text id="k-open" class="tn" x="1080" y="528">0</text>
+
+  <line x1="910" y1="546" x2="1136" y2="546" stroke="#22334C"/>
+  <text class="lbl" x="910" y="566">blotter</text>
+  <g id="rows"></g>
+  <text id="blot-empty" class="ts" x="910" y="596">no trades yet, the desk is flat</text>
+</g>
+
+<!-- dashboard -> brain -->
+<path id="ret" d="M1023 312 L1023 294" class="flow" marker-end="url(#ah)"/>
+<text class="lbl" x="1036" y="306">outcomes train the brain</text>
+
+<!-- brain -> score -->
+<path id="down" d="M760 292 C640 330 520 330 432 374" class="flow" marker-end="url(#ah)"/>
+<text class="lbl" x="580" y="336" text-anchor="middle">retuned weights + gate</text>
+
+<!-- legend -->
+<g>
+  <rect x="24" y="712" width="12" height="12" rx="3" fill="#4FA3FF"/>
+  <text class="ts" x="44" y="722">live data in</text>
+  <rect x="24" y="736" width="12" height="12" rx="3" fill="#9B8CFF"/>
+  <text class="ts" x="44" y="746">decision and learning</text>
+  <rect x="24" y="760" width="12" height="12" rx="3" fill="#F0A63C"/>
+  <text class="ts" x="44" y="770">execution</text>
+  <rect x="24" y="784" width="12" height="12" rx="3" fill="#2ED47A"/>
+  <text class="ts" x="44" y="794">settled outcome</text>
+</g>
+
+<!-- travelling token -->
+<g id="token" opacity="0" style="transform:translate(425px,465px)">
+  <circle r="11" fill="#F0A63C" opacity=".25"/>
+  <circle r="6.5" fill="#F0A63C" stroke="#3A2405" stroke-width="1"/>
+</g>
+</svg>
+
+<div class="ctl">
+  <button id="play" onclick="toggle()">Pause</button>
+  <button onclick="jump()">Next step</button>
+  <button onclick="reset()">Reset session</button>
+  <span>Speed</span>
+  <input type="range" id="spd" min="1" max="10" step="1" value="5" aria-label="Animation speed">
+</div>
+<div class="status">
+  <span class="pill" id="badge">scan 1</span>
+  <span id="status">starting the scan</span>
+</div>
+</div>
+
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+
+const STAGES = ['brain','s1','s2','s3','s4','s5','mm','quiet','bot','post','fill','watch','settle','desk'];
+const FEEDS = [
+  {id:'s1', key:'whales', name:'Unusual Whales', y:278},
+  {id:'s2', key:'news',   name:'X news + lag',  y:368},
+  {id:'s3', key:'espn',   name:'ESPN',          y:458},
+  {id:'s4', key:'crypto', name:'Crypto feeds',  y:548},
+  {id:'s5', key:'books',  name:'Live books',    y:638}
+];
+const POS = {
+  score:[425,465], quiet:[425,632], bot:[730,392], post:[730,528],
+  fill:[730,624], watch:[730,718], settle:[730,814], desk:[1023,586], brain:[780,164]
+};
+
+const MARKETS = [
+  {m:'MLB · LAD vs SDP, LAD ML', v:'Kalshi',     type:'binary'},
+  {m:'NFL · BUF -2.5 cover',     v:'Poly US',    type:'binary'},
+  {m:'BTC above $92k at 4pm',    v:'Kalshi',     type:'binary'},
+  {m:'ETH perp, funding flip',   v:'crypto',     type:'directional'},
+  {m:'Fed cuts at March meeting',v:'Poly US',    type:'binary'},
+  {m:'NBA · LAL vs BOS, over 221',v:'Kalshi',    type:'binary'},
+  {m:'SOL spot momentum break',  v:'crypto',     type:'directional'}
+];
+
+const START_W = {whales:0.22, news:0.18, espn:0.20, crypto:0.16, books:0.24};
+let S = null;
+
+function fresh(){
+  return {
+    step:0, scan:1, weights:Object.assign({},START_W), gate:6.0,
+    hit:0.52, trades:0, wins:0, pnl:0, rows:[], eq:[0], open:0, t:null
+  };
+}
+
+/* ---------- weight bars ---------- */
+function buildWeights(){
+  const g = $('weights'); g.innerHTML='';
+  FEEDS.forEach((f,i)=>{
+    const y = 122 + i*23;
+    const lab = document.createElementNS(NS,'text');
+    lab.setAttribute('class','ts'); lab.setAttribute('x',856); lab.setAttribute('y',y+4);
+    lab.textContent = f.name; g.appendChild(lab);
+    const bg = document.createElementNS(NS,'rect');
+    bg.setAttribute('class','bar-bg'); bg.setAttribute('x',990); bg.setAttribute('y',y-6);
+    bg.setAttribute('width',100); bg.setAttribute('height',8); bg.setAttribute('rx',4); g.appendChild(bg);
+    const bar = document.createElementNS(NS,'rect');
+    bar.setAttribute('id','w-'+f.key); bar.setAttribute('class','bar');
+    bar.setAttribute('x',990); bar.setAttribute('y',y-6); bar.setAttribute('height',8);
+    bar.setAttribute('rx',4); bar.setAttribute('fill','#9B8CFF'); bar.setAttribute('width',0);
+    g.appendChild(bar);
+    const val = document.createElementNS(NS,'text');
+    val.setAttribute('id','wv-'+f.key); val.setAttribute('class','lbl');
+    val.setAttribute('x',1100); val.setAttribute('y',y+3); g.appendChild(val);
+  });
+}
+function paintWeights(){
+  FEEDS.forEach(f=>{
+    const w = S.weights[f.key];
+    $('w-'+f.key).setAttribute('width', Math.max(4, w*260));
+    $('wv-'+f.key).textContent = (w*100).toFixed(0)+'%';
+  });
+  $('k-trades').textContent = S.trades;
+  $('k-hit').textContent = (S.hit*100).toFixed(1)+'%';
+  $('k-gate').textContent = S.gate.toFixed(1)+'%';
+}
+
+/* ---------- dashboard ---------- */
+function paintDesk(){
+  $('k-pnl').textContent = (S.pnl>=0?'+$':'-$') + Math.abs(S.pnl);
+  $('k-pnl').setAttribute('fill', S.pnl>=0 ? '#2ED47A' : '#FF5C6C');
+  $('k-win').textContent = S.trades ? Math.round(S.wins/S.trades*100)+'%' : '—';
+  $('k-open').textContent = S.open;
+
+  // equity curve
+  const pts = S.eq, x0=914, x1=1132, y0=402, y1=476;
+  const lo = Math.min(...pts, -1), hi = Math.max(...pts, 1);
+  const sx = i => pts.length<2 ? x0 : x0 + (i/(pts.length-1))*(x1-x0);
+  const sy = v => y1 - ((v-lo)/((hi-lo)||1))*(y1-y0);
+  const coords = pts.map((v,i)=>sx(i).toFixed(1)+','+sy(v).toFixed(1));
+  $('eq-line').setAttribute('points', coords.join(' '));
+  $('eq-area').setAttribute('d', pts.length>1
+    ? 'M'+coords.join(' L')+' L'+x1+','+y1+' L'+x0+','+y1+' Z' : '');
+  const up = S.pnl>=0;
+  $('eq-line').setAttribute('stroke', up ? '#2ED47A' : '#FF5C6C');
+
+  // blotter rows
+  const g = $('rows'); g.innerHTML='';
+  $('blot-empty').style.display = S.rows.length ? 'none' : 'block';
+  S.rows.slice(-7).forEach((r,i)=>{
+    const y = 590 + i*36;
+    const mk = document.createElementNS(NS,'text');
+    mk.setAttribute('class','ts'); mk.setAttribute('x',910); mk.setAttribute('y',y);
+    mk.textContent = r.m.length>30 ? r.m.slice(0,29)+'…' : r.m; g.appendChild(mk);
+    const bd = document.createElementNS(NS,'rect');
+    bd.setAttribute('x',910); bd.setAttribute('y',y+7); bd.setAttribute('width',44);
+    bd.setAttribute('height',18); bd.setAttribute('rx',5);
+    bd.setAttribute('fill', r.long ? '#123A28' : '#3A1620'); g.appendChild(bd);
+    const bt = document.createElementNS(NS,'text');
+    bt.setAttribute('x',932); bt.setAttribute('y',y+20); bt.setAttribute('text-anchor','middle');
+    bt.setAttribute('font-family','ui-monospace,monospace'); bt.setAttribute('font-size','10');
+    bt.setAttribute('fill', r.long ? '#2ED47A' : '#FF5C6C');
+    bt.textContent = r.side; g.appendChild(bt);
+    const sz = document.createElementNS(NS,'text');
+    sz.setAttribute('class','lbl'); sz.setAttribute('x',962); sz.setAttribute('y',y+20);
+    sz.textContent = '$'+r.size+' · '+r.v; g.appendChild(sz);
+    const pl = document.createElementNS(NS,'text');
+    pl.setAttribute('x',1136); pl.setAttribute('y',y+20); pl.setAttribute('text-anchor','end');
+    pl.setAttribute('font-family','ui-monospace,monospace'); pl.setAttribute('font-size','12');
+    pl.setAttribute('fill', r.pnl>=0 ? '#2ED47A' : '#FF5C6C');
+    pl.textContent = (r.pnl>=0?'+$':'-$')+Math.abs(r.pnl); g.appendChild(pl);
+  });
+}
+
+/* ---------- ticket generation ---------- */
+function newTicket(){
+  const pick = MARKETS[Math.floor(Math.random()*MARKETS.length)];
+  const edge = +(Math.random()*13 + 0.8).toFixed(1);
+  const long = Math.random() > 0.45;
+  const side = pick.type==='binary' ? (long?'YES':'NO') : (long?'BUY':'SELL');
+  const size = Math.min(250, 70 + Math.round(edge*14));
+  return {m:pick.m, v:pick.v, edge, side, long, size, type:pick.type};
+}
+
+/* ---------- steps ---------- */
+function buildScan(){
+  const t = newTicket();
+  S.t = t;
+  const live = t.edge >= S.gate;
+  const common = [
+    {focus:FEEDS.map(f=>f.id), token:null, packets:true,
+     text:'polling all five feeds: whale prints, headline lag, game state, spot and funding, and both live books'},
+    {focus:['mm','brain'], token:POS.score, edge:t.edge,
+     text:'scoring '+t.m+' with the current weights, model price against the '+t.v+' book'}
+  ];
+  if(!live){
+    return common.concat([
+      {focus:['quiet'], token:POS.quiet,
+       text:'edge '+t.edge.toFixed(1)+'% is under the '+S.gate.toFixed(1)+'% gate, stand down and keep scanning'},
+      {focus:['brain'], token:POS.brain, ret:true, learn:'quiet',
+       text:'no fill to learn from, weights hold where they are'}
+    ]);
+  }
+  return common.concat([
+    {focus:['bot'], token:POS.bot, ticket:true,
+     text:'gate cleared, ticket written: '+t.side+' '+t.m+' at $'+t.size},
+    {focus:['post'], token:POS.post, sign:true,
+     text:'venue confirmed live, size under cap, order signed and posted to '+t.v},
+    {focus:['fill'], token:POS.fill, fill:true,
+     text:'filled '+t.side+' $'+t.size+', position is open'},
+    {focus:['watch'], token:POS.watch,
+     text:'flatten-watch armed, exit triggers running against the live book'},
+    {focus:['settle'], token:POS.settle, settle:true,
+     text:'market resolved'},
+    {focus:['desk'], token:POS.desk, book:true,
+     text:'written to the desk dashboard: side, size, venue and realised PnL'},
+    {focus:['brain'], token:POS.brain, ret:true, learn:'trade',
+     text:'the brain grades the outcome, reweights the feeds that called it and nudges the gate'}
+  ]);
+}
+
+let SEQ = null;
+
+/* ---------- rendering a step ---------- */
+function render(){
+  const s = SEQ[S.step];
+  STAGES.forEach(id=>{
+    const el = $(id);
+    el.classList.toggle('dim', !s.focus.includes(id));
+    el.classList.toggle('hot', s.focus.includes(id));
+  });
+
+  // token
+  const tk = $('token');
+  if(s.token){ tk.setAttribute('opacity','1'); tk.style.transform='translate('+s.token[0]+'px,'+s.token[1]+'px)'; }
+  else { tk.setAttribute('opacity','0'); }
+
+  // feed packets
+  FEEDS.forEach((f,i)=>{
+    const p = $('pk'+i);
+    if(s.packets){
+      p.style.transition='none';
+      p.style.transform='translate(250px,'+f.y+'px)';
+      p.style.opacity='1';
+      requestAnimationFrame(()=>{ p.style.transition=''; p.style.transform='translate(300px,465px)'; });
+    } else { p.style.opacity='0'; }
+  });
+
+  $('ret').classList.toggle('live', !!s.ret);
+  $('down').classList.toggle('live', s.focus.includes('mm'));
+
+  if(s.edge !== undefined){
+    $('edge-val').textContent = s.edge.toFixed(1)+'%';
+    $('edge-bar').setAttribute('width', Math.min(210, (s.edge/15)*210));
+    const gx = 320 + (S.gate/15)*210;
+    $('gate-tick').setAttribute('x1',gx); $('gate-tick').setAttribute('x2',gx);
+    $('gate-lbl').setAttribute('x',gx);
+    $('gate-lbl').textContent = 'gate '+S.gate.toFixed(1)+'%';
+    const live = s.edge >= S.gate;
+    $('edge-bar').setAttribute('fill', live ? '#9B8CFF' : '#3C526E');
+    $('verdict').textContent = live ? 'edge clears the gate, send it to the bot' : 'edge under the gate, no ticket';
+  }
+
+  if(s.ticket){
+    const t = S.t;
+    $('tk-market').textContent = t.m+' · '+t.v;
+    $('tk-side').textContent = t.side;
+    $('tk-side').setAttribute('fill', t.long ? '#2ED47A' : '#FF5C6C');
+    $('tk-badge').setAttribute('fill', t.long ? '#123A28' : '#3A1620');
+    $('tk-size').textContent = '$'+t.size;
+    $('tk-note').textContent = 'edge '+t.edge.toFixed(1)+'% · cap $250 · '+(t.type==='binary'?'binary contract':'directional');
+  }
+
+  $('shackle').setAttribute('d', s.sign ? 'M8 10 V7 a5 5 0 0 1 10 0 V10' : 'M8 10 V6 a5 5 0 0 1 10 -2 V6');
+
+  if(s.fill){
+    $('fill-bar').setAttribute('width', 0);
+    requestAnimationFrame(()=>$('fill-bar').setAttribute('width', 212));
+    $('fill-note').textContent = S.t.side+' $'+S.t.size+' filled on '+S.t.v;
+    S.open = 1; paintDesk();
+  }
+
+  if(s.settle && !s.done){
+    s.done = true;
+    const t = S.t;
+    const win = Math.random() < S.hit;
+    t.win = win;
+    t.pnl = win ? Math.round(t.size*(0.28+Math.random()*0.45))
+                : -Math.round(t.size*(0.30+Math.random()*0.5));
+    $('res-badge').setAttribute('fill', win ? '#123A28' : '#3A1620');
+    $('res-text').setAttribute('fill', win ? '#2ED47A' : '#FF5C6C');
+    $('res-text').textContent = (win?'WIN ':'LOSS ')+(t.pnl>=0?'+':'')+t.pnl;
+    SEQ[S.step].text = 'market resolved '+(win?'in our favour':'against us')+', PnL '+(t.pnl>=0?'+$':'-$')+Math.abs(t.pnl)+' booked';
+  }
+
+  if(s.book && !s.booked){
+    s.booked = true;
+    const t = S.t;
+    S.rows.push({m:t.m, v:t.v, side:t.side, long:t.long, size:t.size, pnl:t.pnl});
+    S.pnl += t.pnl; S.eq.push(S.pnl); S.open = 0;
+    S.trades += 1; if(t.win) S.wins += 1;
+    paintDesk();
+  }
+
+  if(s.learn && !s.learned){
+    s.learned = true;
+    if(s.learn === 'trade'){
+      // reward the feeds, drift the hit rate up as the sample grows
+      const keys = FEEDS.map(f=>f.key);
+      const hero = keys[Math.floor(Math.random()*keys.length)];
+      keys.forEach(k=>{
+        const d = (k===hero ? (S.t.win? 0.018 : -0.014) : (Math.random()-0.5)*0.008);
+        S.weights[k] = Math.max(0.06, Math.min(0.40, S.weights[k]+d));
+      });
+      const sum = keys.reduce((a,k)=>a+S.weights[k],0);
+      keys.forEach(k=> S.weights[k] = S.weights[k]/sum);
+      S.hit = Math.min(0.63, S.hit + 0.006);
+      S.gate = Math.max(5.4, Math.min(6.6, S.gate + (S.t.win ? -0.05 : 0.07)));
+      SEQ[S.step].text = 'outcome graded, weights shifted toward '
+        + FEEDS.find(f=>f.key===hero).name + ', hit rate now ' + (S.hit*100).toFixed(1)
+        + '% and the gate sits at ' + S.gate.toFixed(1) + '%';
+    }
+    paintWeights();
+  }
+
+  ['syn1','syn2','syn3'].forEach((id,i)=>{
+    $(id).setAttribute('opacity', s.focus.includes('brain') ? '1' : '0.35');
+  });
+
+  $('status').textContent = SEQ[S.step].text;
+  $('badge').textContent = (SEQ.length===4 ? 'quiet scan ' : 'scan ') + S.scan;
+}
+
+/* ---------- driver ---------- */
+let running = true, timer = null;
+function step(){
+  S.step++;
+  if(S.step >= SEQ.length){ S.step = 0; S.scan++; SEQ = buildScan(); }
+  render();
+}
+function tick(){
+  if(!running) return;
+  const d = 2600 - parseInt($('spd').value)*200;
+  timer = setTimeout(()=>{ step(); tick(); }, d);
+}
+window.toggle = function(){
+  running = !running;
+  if(timer) clearTimeout(timer);
+  $('play').textContent = running ? 'Pause' : 'Play';
+  if(running) tick();
+};
+window.jump = function(){ if(timer) clearTimeout(timer); step(); if(running) tick(); };
+window.reset = function(){
+  if(timer) clearTimeout(timer);
+  S = fresh(); SEQ = buildScan();
+  $('res-text').textContent='—'; $('res-text').setAttribute('fill','#8FA3BC');
+  $('res-badge').setAttribute('fill','#22334C');
+  $('tk-market').textContent='no open ticket'; $('tk-side').textContent='—';
+  $('tk-side').setAttribute('fill','#8FA3BC'); $('tk-badge').setAttribute('fill','#22334C');
+  $('tk-size').textContent='$0'; $('tk-note').textContent='cap $250 per ticket';
+  $('fill-note').textContent='waiting for the book'; $('fill-bar').setAttribute('width',0);
+  paintWeights(); paintDesk(); render(); if(running) tick();
+};
+
+buildWeights();
+S = fresh(); SEQ = buildScan();
+paintWeights(); paintDesk(); render();
+
+if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  running = false; $('play').textContent = 'Play';
+} else { tick(); }
+})();
+</script>
+</body>
+</html>
