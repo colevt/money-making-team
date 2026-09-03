@@ -1,5 +1,11 @@
-/* Local Money Team desk. One live payload drives Desk + Learn. */
+/* Local Money Team desk. One live payload drives Desk + Learn.
+
+On localhost, /api/desk is proxied by tools/serve_desk.py.
+On a public host (Lovable static publish, GitHub Pages, etc.) we hit the
+live Cloudflare desk directly. That uses no Lovable Cloud and no credits.
+*/
 const POLL_MS = 5000;
+const LIVE_DESK = "https://merger-sole-additional-checked.trycloudflare.com/api/desk";
 const $ = (id) => document.getElementById(id);
 const money = (n) => (n < 0 ? "-" : "") + "$" + Math.abs(n).toFixed(2);
 const signed = (n) => (n > 0 ? "+" : n < 0 ? "-" : "") + "$" + Math.abs(n).toFixed(2);
@@ -715,11 +721,27 @@ window.addEventListener("hashchange", () => {
   setTab(location.hash === "#learn" ? "learn" : "desk");
 });
 
+function deskUrls() {
+  const host = location.hostname;
+  const local = host === "127.0.0.1" || host === "localhost";
+  return local ? ["/api/desk", LIVE_DESK] : [LIVE_DESK];
+}
+
 async function load() {
   try {
-    const r = await fetch("/api/desk", { cache: "no-store" });
-    if (!r.ok) throw new Error(String(r.status));
-    state = await r.json();
+    let payload = null;
+    for (const url of deskUrls()) {
+      try {
+        const r = await fetch(url, { cache: "no-store" });
+        if (!r.ok) continue;
+        payload = await r.json();
+        break;
+      } catch (_) {
+        /* try next */
+      }
+    }
+    if (!payload) throw new Error("desk offline");
+    state = payload;
     renderDesk();
     syncLearn();
   } catch (err) {
